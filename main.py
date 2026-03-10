@@ -1,14 +1,12 @@
 import os
 from fastapi import FastAPI
 from pydantic import BaseModel
-import google.generativeai as genai
+from google import genai
 from dotenv import load_dotenv
 
 load_dotenv()
 
-genai.configure(api_key=os.environ["GEMINI_API_KEY"])
-
-model = genai.GenerativeModel('gemini-1.5-flash')
+client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
 app = FastAPI(title="Chatbot IA API")
 
@@ -21,6 +19,9 @@ def read_root():
 
 @app.post("/chat")
 def conversar_com_ia(mensagem: MensagemUsuario):
-    resposta_ia = model.generate_content(mensagem.texto)
+    response = client.models.generate_content(
+        model='gemini-1.5-flash',
+        contents=mensagem.texto,
+    )
     
-    return {"resposta": resposta_ia.text}
+    return {"resposta": response.text}
