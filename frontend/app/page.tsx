@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 
 type Mensagem = {
@@ -12,6 +12,23 @@ export default function Home() {
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [input, setInput] = useState("");
   const [carregando, setCarregando] = useState(false);
+
+  useEffect(() => {
+    const carregarHistorico = async () => {
+      try {
+        const resposta = await fetch("http://127.0.0.1:8000/chat/sessao_nextjs");
+        const dados = await resposta.json();
+        
+        if (dados.mensagens && dados.mensagens.length > 0) {
+          setMensagens(dados.mensagens);
+        }
+      } catch (error) {
+        console.error("Erro ao carregar histórico:", error);
+      }
+    };
+
+    carregarHistorico();
+  }, []);
 
   const enviarMensagem = async (e: React.FormEvent) => {
     e.preventDefault();

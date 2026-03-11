@@ -74,3 +74,16 @@ def conversar_com_ia(mensagem: MensagemUsuario):
         "resposta": response.text,
         "sessao_id": sessao
     }
+
+@app.get("/chat/{sessao_id}")
+def listar_mensagens(sessao_id: str):
+    resposta = supabase.table("mensagens_chat").select("*").eq("sessao_id", sessao_id).order("criado_em").execute()
+    
+    mensagens_formatadas = []
+    for msg in resposta.data:
+        mensagens_formatadas.append({
+            "autor": msg["autor"],
+            "texto": msg["texto"]
+        })
+        
+    return {"mensagens": mensagens_formatadas}
