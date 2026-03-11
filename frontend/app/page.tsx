@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import ReactMarkdown from "react-markdown";
 
 type Mensagem = {
   autor: "usuario" | "ia";
@@ -11,10 +12,37 @@ export default function Home() {
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [input, setInput] = useState("");
   const [carregando, setCarregando] = useState(false);
+  const [sessaoId, setSessaoId] = useState<string>("");
+
+  useEffect(() => {
+    let idSalvo = localStorage.getItem("chatbot_sessao_id");
+    
+    if (!idSalvo) {
+      idSalvo = "sessao_" + crypto.randomUUID();
+      localStorage.setItem("chatbot_sessao_id", idSalvo);
+    }
+    
+    setSessaoId(idSalvo);
+
+    const carregarHistorico = async (id: string) => {
+      try {
+        const resposta = await fetch(`http://127.0.0.1:8000/chat/${id}`);
+        const dados = await resposta.json();
+        
+        if (dados.mensagens && dados.mensagens.length > 0) {
+          setMensagens(dados.mensagens);
+        }
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    carregarHistorico(idSalvo);
+  }, []);
 
   const enviarMensagem = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim()) return;
+    if (!input.trim() || !sessaoId) return;
 
     const novaMensagemUsuario: Mensagem = { autor: "usuario", texto: input };
     setMensagens((prev) => [...prev, novaMensagemUsuario]);
@@ -27,7 +55,7 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           texto: novaMensagemUsuario.texto,
-          sessao_id: "sessao_nextjs",
+          sessao_id: sessaoId,
         }),
       });
 
@@ -38,10 +66,10 @@ export default function Home() {
         { autor: "ia", texto: dados.resposta },
       ]);
     } catch (error) {
-      console.error("Erro ao comunicar com a API:", error);
+      console.error(error);
       setMensagens((prev) => [
         ...prev,
-        { autor: "ia", texto: "Desculpe, ocorreu um erro de conexão. O backend está rodando?" },
+        { autor: "ia", texto: "Desculpe, ocorreu um erro de conexão." },
       ]);
     } finally {
       setCarregando(false);
@@ -70,7 +98,15 @@ export default function Home() {
                     : "bg-gray-200 text-gray-800 self-start rounded-tl-none"
                 }`}
               >
-                {msg.texto}
+                {msg.autor === "ia" ? (
+                  <div className="prose prose-sm max-w-none text-gray-800">
+                    <ReactMarkdown>
+                      {msg.texto}
+                    </ReactMarkdown>
+                  </div>
+                ) : (
+                  msg.texto
+                )}
               </div>
             ))}
             {carregando && (
