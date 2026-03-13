@@ -26,7 +26,7 @@ export default function Home() {
 
     const carregarHistorico = async (id: string) => {
       try {
-        const resposta = await fetch(`http://127.0.0.1:8000/chat/${id}`);
+        const resposta = await fetch(`https://meu-chatbot-ia-01xd.onrender.com/chat/${id}`);
         const dados = await resposta.json();
         
         if (dados.mensagens && dados.mensagens.length > 0) {
@@ -50,7 +50,7 @@ export default function Home() {
     setCarregando(true);
 
     try {
-      const resposta = await fetch("http://127.0.0.1:8000/chat", {
+     const resposta = await fetch("https://meu-chatbot-ia-01xd.onrender.com/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
