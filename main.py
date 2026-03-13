@@ -20,7 +20,10 @@ app = FastAPI(title="Chatbot IA API com Memória Permanente")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[
+        "http://localhost:3000",
+        "https://meu-chatbot-ia.vercel.app"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
