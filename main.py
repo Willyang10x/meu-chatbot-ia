@@ -32,16 +32,18 @@ app.add_middleware(
 class MensagemUsuario(BaseModel):
     texto: str
     sessao_id: str = "usuario_padrao"
+    usuario_email: str = "anonimo"
 
 sessoes_chat = {}
 
 @app.get("/")
 def read_root():
-    return {"status": "ok", "mensagem": "Backend rodando com Supabase!"}
+    return {"status": "ok", "mensagem": "Backend rodando com Supabase e Auth!"}
 
 @app.post("/chat")
 def conversar_com_ia(mensagem: MensagemUsuario):
     sessao = mensagem.sessao_id
+    email = mensagem.usuario_email
     
     if sessao not in sessoes_chat:
         resposta_banco = supabase.table("mensagens_chat").select("*").eq("sessao_id", sessao).order("criado_em").execute()
@@ -68,7 +70,8 @@ def conversar_com_ia(mensagem: MensagemUsuario):
     supabase.table("mensagens_chat").insert({
         "sessao_id": sessao,
         "autor": "usuario",
-        "texto": mensagem.texto
+        "texto": mensagem.texto,
+        "usuario_email": email
     }).execute()
     
     response = chat_atual.send_message(mensagem.texto)
@@ -76,7 +79,8 @@ def conversar_com_ia(mensagem: MensagemUsuario):
     supabase.table("mensagens_chat").insert({
         "sessao_id": sessao,
         "autor": "ia",
-        "texto": response.text
+        "texto": response.text,
+        "usuario_email": email
     }).execute()
     
     return {
@@ -97,9 +101,9 @@ def listar_mensagens(sessao_id: str):
         
     return {"mensagens": mensagens_formatadas}
 
-@app.get("/sessoes")
-def listar_sessoes():
-    resposta = supabase.table("mensagens_chat").select("sessao_id, texto, criado_em").eq("autor", "usuario").order("criado_em").execute()
+@app.get("/sessoes/{usuario_email}")
+def listar_sessoes(usuario_email: str):
+    resposta = supabase.table("mensagens_chat").select("sessao_id, texto, criado_em").eq("autor", "usuario").eq("usuario_email", usuario_email).order("criado_em").execute()
     
     sessoes_dict = {}
     for msg in resposta.data:
