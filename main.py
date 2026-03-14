@@ -96,3 +96,22 @@ def listar_mensagens(sessao_id: str):
         })
         
     return {"mensagens": mensagens_formatadas}
+
+@app.get("/sessoes")
+def listar_sessoes():
+    resposta = supabase.table("mensagens_chat").select("sessao_id, texto, criado_em").eq("autor", "usuario").order("criado_em").execute()
+    
+    sessoes_dict = {}
+    for msg in resposta.data:
+        sid = msg["sessao_id"]
+        if sid not in sessoes_dict:
+            titulo = msg["texto"][:35] + "..." if len(msg["texto"]) > 35 else msg["texto"]
+            sessoes_dict[sid] = {
+                "id": sid,
+                "titulo": titulo
+            }
+            
+    lista_sessoes = list(sessoes_dict.values())
+    lista_sessoes.reverse()
+    
+    return {"sessoes": lista_sessoes}
