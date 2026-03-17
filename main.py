@@ -48,12 +48,30 @@ def conversar_com_ia(mensagem: MensagemUsuario):
     if sessao not in sessoes_chat:
         resposta_banco = supabase.table("mensagens_chat").select("*").eq("sessao_id", sessao).order("criado_em").execute()
         
+        if len(resposta_banco.data) == 0:
+            try:
+                resposta_titulo = client.models.generate_content(
+                    model='gemini-2.5-flash',
+                    contents=f"Crie um título extremamente curto (máximo 4 palavras) para resumir esta mensagem de um usuário: '{mensagem.texto}'. Responda apenas com o título, sem aspas ou pontuação no final."
+                )
+                titulo_gerado = resposta_titulo.text.strip()
+                
+                supabase.table("mensagens_chat").insert({
+                    "sessao_id": sessao,
+                    "autor": "titulo",
+                    "texto": titulo_gerado,
+                    "usuario_email": email
+                }).execute()
+            except Exception as e:
+                print(f"Erro ao gerar título: {e}")
+        
         historico_formatado = []
         for msg in resposta_banco.data:
-            papel = "user" if msg["autor"] == "usuario" else "model"
-            historico_formatado.append(
-                types.Content(role=papel, parts=[types.Part.from_text(text=msg["texto"])])
-            )
+            if msg["autor"] in ["usuario", "ia"]:
+                papel = "user" if msg["autor"] == "usuario" else "model"
+                historico_formatado.append(
+                    types.Content(role=papel, parts=[types.Part.from_text(text=msg["texto"])])
+                )
             
         data_hoje = datetime.now().strftime("%d/%m/%Y")
             
@@ -94,26 +112,29 @@ def listar_mensagens(sessao_id: str):
     
     mensagens_formatadas = []
     for msg in resposta.data:
-        mensagens_formatadas.append({
-            "autor": msg["autor"],
-            "texto": msg["texto"]
-        })
+        if msg["autor"] in ["usuario", "ia"]:
+            mensagens_formatadas.append({
+                "autor": msg["autor"],
+                "texto": msg["texto"]
+            })
         
     return {"mensagens": mensagens_formatadas}
 
 @app.get("/sessoes/{usuario_email}")
 def listar_sessoes(usuario_email: str):
-    resposta = supabase.table("mensagens_chat").select("sessao_id, texto, criado_em").eq("autor", "usuario").eq("usuario_email", usuario_email).order("criado_em").execute()
+    resposta = supabase.table("mensagens_chat").select("sessao_id, texto, autor, criado_em").eq("usuario_email", usuario_email).order("criado_em").execute()
     
     sessoes_dict = {}
     for msg in resposta.data:
         sid = msg["sessao_id"]
         if sid not in sessoes_dict:
-            titulo = msg["texto"][:35] + "..." if len(msg["texto"]) > 35 else msg["texto"]
             sessoes_dict[sid] = {
                 "id": sid,
-                "titulo": titulo
+                "titulo": msg["texto"][:35] + "..." if len(msg["texto"]) > 35 else msg["texto"]
             }
+            
+        if msg["autor"] == "titulo":
+            sessoes_dict[sid]["titulo"] = msg["texto"]
             
     lista_sessoes = list(sessoes_dict.values())
     lista_sessoes.reverse()

@@ -35,7 +35,12 @@ export default function Home() {
   const [sessoes, setSessoes] = useState<Sessao[]>([]);
   const [menuAberto, setMenuAberto] = useState(false);
   const [copiadoIndex, setCopiadoIndex] = useState<number | null>(null);
+  
+  const [ouvindo, setOuvindo] = useState(false);
+  const [falandoIndex, setFalandoIndex] = useState<number | null>(null);
+  
   const fimDasMensagensRef = useRef<HTMLDivElement>(null);
+  const reconhecimentoRef = useRef<any>(null);
 
   const rolarParaOFinal = () => {
     fimDasMensagensRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -56,7 +61,12 @@ export default function Home() {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      if (typeof window !== "undefined" && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+    };
   }, []);
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -149,18 +159,78 @@ export default function Home() {
   };
 
   const copiarTexto = (texto: string, index: number) => {
-    // Regex mágico para limpar as formatações Markdown (negrito, itálico, títulos, etc.)
     const textoLimpo = texto
-      .replace(/\*\*(.*?)\*\*/g, '$1') // Remove negrito
-      .replace(/\*(.*?)\*/g, '$1')     // Remove itálico
-      .replace(/```[\s\S]*?```/g, (m) => m.replace(/```\w*\n?/g, '')) // Limpa formatação de blocos de código
-      .replace(/`(.*?)`/g, '$1')       // Remove código inline
-      .replace(/^#+\s+(.*)$/gm, '$1')  // Remove # Títulos
-      .replace(/~~(.*?)~~/g, '$1');    // Remove texto riscado
+      .replace(/\*\*(.*?)\*\*/g, '$1')
+      .replace(/\*(.*?)\*/g, '$1')
+      .replace(/```[\s\S]*?```/g, (m) => m.replace(/```\w*\n?/g, ''))
+      .replace(/`(.*?)`/g, '$1')
+      .replace(/^#+\s+(.*)$/gm, '$1')
+      .replace(/~~(.*?)~~/g, '$1');
 
     navigator.clipboard.writeText(textoLimpo);
     setCopiadoIndex(index);
     setTimeout(() => setCopiadoIndex(null), 2000);
+  };
+
+  const alternarMicrofone = () => {
+    if (ouvindo) {
+      reconhecimentoRef.current?.stop();
+      setOuvindo(false);
+      return;
+    }
+
+    const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognitionAPI) {
+      alert("O seu navegador não suporta reconhecimento de voz.");
+      return;
+    }
+
+    const recognition = new SpeechRecognitionAPI();
+    recognition.lang = "pt-BR";
+    recognition.continuous = false;
+    recognition.interimResults = true;
+
+    recognition.onstart = () => setOuvindo(true);
+    
+    recognition.onresult = (event: any) => {
+      let transcricaoAtual = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        transcricaoAtual += event.results[i][0].transcript;
+      }
+      setInput(transcricaoAtual);
+    };
+
+    recognition.onerror = () => setOuvindo(false);
+    recognition.onend = () => setOuvindo(false);
+
+    reconhecimentoRef.current = recognition;
+    recognition.start();
+  };
+
+  const alternarVoz = (texto: string, index: number) => {
+    if (!window.speechSynthesis) {
+      alert("O seu navegador não suporta síntese de voz.");
+      return;
+    }
+
+    if (falandoIndex === index) {
+      window.speechSynthesis.cancel();
+      setFalandoIndex(null);
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+
+    const textoLimpo = texto.replace(/[*#~`]/g, '');
+    const utterance = new SpeechSynthesisUtterance(textoLimpo);
+    utterance.lang = "pt-BR";
+    utterance.rate = 1.1;
+
+    utterance.onend = () => setFalandoIndex(null);
+    utterance.onerror = () => setFalandoIndex(null);
+
+    setFalandoIndex(index);
+    window.speechSynthesis.speak(utterance);
   };
 
   useEffect(() => {
@@ -195,9 +265,14 @@ export default function Home() {
     if (window.innerWidth < 768) setMenuAberto(false);
   };
 
-  const enviarMensagem = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const enviarMensagem = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!input.trim() || !sessaoId || !usuarioLogado) return;
+
+    if (ouvindo) {
+      reconhecimentoRef.current?.stop();
+      setOuvindo(false);
+    }
 
     const novaMensagemUsuario: Mensagem = { autor: "usuario", texto: input };
     setMensagens((prev) => [...prev, novaMensagemUsuario]);
@@ -223,6 +298,13 @@ export default function Home() {
       setMensagens((prev) => [...prev, { autor: "ia", texto: "Desculpe, ocorreu um erro de conexão." }]);
     } finally {
       setCarregando(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      enviarMensagem();
     }
   };
 
@@ -389,12 +471,19 @@ export default function Home() {
                         <div className="prose prose-invert max-w-none text-gray-200 leading-relaxed">
                           <ReactMarkdown>{msg.texto}</ReactMarkdown>
                         </div>
-                        <div className="flex justify-start mt-3">
+                        <div className="flex justify-start mt-3 gap-4">
                           <button onClick={() => copiarTexto(msg.texto, index)} className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors" title="Copiar resposta">
                             {copiadoIndex === index ? (
                               <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-500"><polyline points="20 6 9 17 4 12"></polyline></svg> Copiado</>
                             ) : (
                               <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> Copiar</>
+                            )}
+                          </button>
+                          <button onClick={() => alternarVoz(msg.texto, index)} className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors" title="Ouvir resposta">
+                            {falandoIndex === index ? (
+                              <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg> Parar</>
+                            ) : (
+                              <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg> Ouvir</>
                             )}
                           </button>
                         </div>
@@ -426,18 +515,31 @@ export default function Home() {
 
         <div className="w-full flex flex-col items-center bg-[#212121] px-4 pb-6 pt-2">
           <div className="w-full max-w-3xl relative">
-            <form onSubmit={enviarMensagem} className="relative flex items-center w-full">
+            <form onSubmit={enviarMensagem} className="relative flex items-center w-full gap-2 bg-[#2f2f2f] rounded-3xl border border-gray-700 shadow-sm px-2">
+              <button
+                type="button"
+                onClick={alternarMicrofone}
+                className={`p-2.5 rounded-full transition-colors flex-shrink-0 flex items-center justify-center h-10 w-10 ${ouvindo ? "bg-red-500/20 text-red-500 animate-pulse" : "bg-transparent text-gray-400 hover:text-gray-200"}`}
+                title="Ditar mensagem"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path>
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                  <line x1="12" y1="19" x2="12" y2="22"></line>
+                </svg>
+              </button>
               <input
                 type="text"
-                className="w-full bg-[#2f2f2f] text-gray-100 rounded-3xl pl-5 pr-14 py-3.5 focus:outline-none focus:ring-1 focus:ring-gray-600 border border-gray-700 shadow-sm"
-                placeholder="Envie uma mensagem..."
+                className="flex-1 bg-transparent text-gray-100 py-3.5 focus:outline-none"
+                placeholder={ouvindo ? "A ouvir..." : "Envie uma mensagem..."}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
                 disabled={carregando}
               />
               <button
                 type="submit"
-                className="absolute right-2 top-1/2 -translate-y-1/2 bg-white text-black rounded-full hover:bg-gray-200 transition-colors disabled:bg-[#424242] disabled:text-gray-500 flex items-center justify-center h-9 w-9"
+                className="bg-white text-black rounded-full hover:bg-gray-200 transition-colors disabled:bg-[#424242] disabled:text-gray-500 flex-shrink-0 flex items-center justify-center h-9 w-9 mr-1"
                 disabled={carregando || !input.trim()}
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
