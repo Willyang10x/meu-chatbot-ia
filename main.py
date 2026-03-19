@@ -1,4 +1,5 @@
 import os
+import base64
 from datetime import datetime
 from fastapi import FastAPI
 from pydantic import BaseModel
@@ -18,7 +19,7 @@ url: str = os.environ.get("SUPABASE_URL", "")
 key: str = os.environ.get("SUPABASE_KEY", "")
 supabase: Client = create_client(url, key)
 
-app = FastAPI(title="Chatbot IA API com Memória Permanente e Fallback")
+app = FastAPI(title="Chatbot IA API com Memória, Fallback e Visão Computacional")
 
 app.add_middleware(
     CORSMiddleware,
@@ -35,12 +36,13 @@ class MensagemUsuario(BaseModel):
     texto: str
     sessao_id: str = "usuario_padrao"
     usuario_email: str = "anonimo"
+    imagem: str | None = None  # Novo campo para a imagem em Base64
 
 sessoes_chat = {}
 
 @app.get("/")
 def read_root():
-    return {"status": "ok", "mensagem": "Backend rodando com Gemini + Fallback Groq!"}
+    return {"status": "ok", "mensagem": "Backend rodando com Gemini, Fallback Groq e Visão Computacional!"}
 
 @app.post("/chat")
 def conversar_com_ia(mensagem: MensagemUsuario):
@@ -55,13 +57,13 @@ def conversar_com_ia(mensagem: MensagemUsuario):
             try:
                 resposta_titulo = client.models.generate_content(
                     model='gemini-2.5-flash',
-                    contents=f"Crie um título extremamente curto (máximo 4 palavras) para resumir esta mensagem de um usuário: '{mensagem.texto}'. Responda apenas com o título, sem aspas ou pontuação no final."
+                    contents=f"Crie um título extremamente curto (máximo 4 palavras) para resumir esta mensagem: '{mensagem.texto}'. Responda apenas com o título."
                 )
                 titulo_gerado = resposta_titulo.text.strip()
             except Exception:
                 try:
                     resp_groq = groq_client.chat.completions.create(
-                        messages=[{"role": "user", "content": f"Crie um título extremamente curto (máximo 4 palavras) para resumir esta mensagem de um usuário: '{mensagem.texto}'. Responda apenas com o título, sem aspas ou pontuação no final."}],
+                        messages=[{"role": "user", "content": f"Crie um título curto (máximo 4 palavras) para resumir esta mensagem: '{mensagem.texto}'."}],
                         model="llama3-8b-8192",
                     )
                     titulo_gerado = resp_groq.choices[0].message.content.strip()
@@ -93,18 +95,32 @@ def conversar_com_ia(mensagem: MensagemUsuario):
         
     chat_atual = sessoes_chat[sessao]
     
+    # Prepara o texto para guardar na base de dados
+    texto_db = mensagem.texto
+    if mensagem.imagem:
+        texto_db += "\n\n*[Imagem anexada]*"
+    
     supabase.table("mensagens_chat").insert({
         "sessao_id": sessao,
         "autor": "usuario",
-        "texto": mensagem.texto,
+        "texto": texto_db,
         "usuario_email": email
     }).execute()
     
     texto_resposta = ""
     try:
-        response = chat_atual.send_message(mensagem.texto)
+        # Se houver imagem, montamos um pacote especial para os "olhos" do Gemini
+        prompt_parts = [mensagem.texto]
+        if mensagem.imagem:
+            img_bytes = base64.b64decode(mensagem.imagem)
+            prompt_parts.append(
+                types.Part.from_bytes(data=img_bytes, mime_type="image/jpeg")
+            )
+            
+        response = chat_atual.send_message(prompt_parts)
         texto_resposta = response.text
     except Exception as e:
+        # Fallback para Llama 3 (Groq não suporta imagem, então ignora a foto e envia só o texto)
         resposta_banco = supabase.table("mensagens_chat").select("*").eq("sessao_id", sessao).order("criado_em").execute()
         groq_messages = [{"role": "system", "content": f"Você é um assistente prestativo. Hoje é dia {data_hoje}."}]
         for msg in resposta_banco.data:

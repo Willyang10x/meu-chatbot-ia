@@ -39,8 +39,12 @@ export default function Home() {
   const [ouvindo, setOuvindo] = useState(false);
   const [falandoIndex, setFalandoIndex] = useState<number | null>(null);
   
+  const [imagemBase64, setImagemBase64] = useState<string | null>(null);
+  const [imagemPreview, setImagemPreview] = useState<string | null>(null);
+  
   const fimDasMensagensRef = useRef<HTMLDivElement>(null);
   const reconhecimentoRef = useRef<any>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const rolarParaOFinal = () => {
     fimDasMensagensRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -110,11 +114,12 @@ export default function Home() {
     setSessoes([]);
     setMensagens([]);
     setSessaoId("");
+    limparImagem();
   };
 
   const carregarHistorico = async (id: string) => {
     try {
-      const resposta = await fetch(`https://meu-chatbot-ia-01xd.onrender.com/chat/${id}`);
+      const resposta = await fetch("https://meu-chatbot-ia-01xd.onrender.com/chat/" + id);
       const dados = await resposta.json();
       if (dados.mensagens) {
         setMensagens(dados.mensagens);
@@ -128,7 +133,7 @@ export default function Home() {
 
   const carregarSessoes = async (email: string) => {
     try {
-      const resposta = await fetch(`https://meu-chatbot-ia-01xd.onrender.com/sessoes/${email}`);
+      const resposta = await fetch("https://meu-chatbot-ia-01xd.onrender.com/sessoes/" + email);
       const dados = await resposta.json();
       if (dados.sessoes) {
         setSessoes(dados.sessoes);
@@ -141,7 +146,7 @@ export default function Home() {
   const apagarSessao = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      const resposta = await fetch(`https://meu-chatbot-ia-01xd.onrender.com/sessoes/${id}`, {
+      const resposta = await fetch("https://meu-chatbot-ia-01xd.onrender.com/sessoes/" + id, {
         method: "DELETE",
       });
 
@@ -233,6 +238,31 @@ export default function Home() {
     window.speechSynthesis.speak(utterance);
   };
 
+  const handleSelecionarImagem = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert("A imagem é muito grande. O limite é 5MB.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64completo = reader.result as string;
+      setImagemPreview(base64completo);
+      const base64Puro = base64completo.split(',')[1];
+      setImagemBase64(base64Puro);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const limparImagem = () => {
+    setImagemBase64(null);
+    setImagemPreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   useEffect(() => {
     if (!usuarioLogado) return;
     
@@ -255,6 +285,7 @@ export default function Home() {
     localStorage.setItem("chatbot_sessao_id", novoId);
     setSessaoId(novoId);
     setMensagens([]);
+    limparImagem();
     if (window.innerWidth < 768) setMenuAberto(false);
   };
 
@@ -262,31 +293,46 @@ export default function Home() {
     setSessaoId(id);
     localStorage.setItem("chatbot_sessao_id", id);
     carregarHistorico(id);
+    limparImagem();
     if (window.innerWidth < 768) setMenuAberto(false);
   };
 
   const enviarMensagem = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!input.trim() || !sessaoId || !usuarioLogado) return;
+    if (!input.trim() && !imagemBase64) return;
+    if (!sessaoId || !usuarioLogado) return;
 
     if (ouvindo) {
       reconhecimentoRef.current?.stop();
       setOuvindo(false);
     }
 
-    const novaMensagemUsuario: Mensagem = { autor: "usuario", texto: input };
+    let textoMensagem = input;
+    if (!textoMensagem.trim() && imagemBase64) {
+      textoMensagem = "Analise esta imagem.";
+    }
+
+    const novaMensagemUsuario: Mensagem = { 
+      autor: "usuario", 
+      texto: imagemBase64 ? `${textoMensagem}\n\n*[Imagem anexada]*` : textoMensagem 
+    };
+    
     setMensagens((prev) => [...prev, novaMensagemUsuario]);
     setInput("");
     setCarregando(true);
+    
+    const imagemEnviada = imagemBase64;
+    limparImagem();
 
     try {
-      const resposta = await fetch("https://meu-chatbot-ia-01xd.onrender.com/chat", {
+      const resposta = await fetch("[https://meu-chatbot-ia-01xd.onrender.com/chat](https://meu-chatbot-ia-01xd.onrender.com/chat)", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          texto: novaMensagemUsuario.texto,
+          texto: textoMensagem,
           sessao_id: sessaoId,
-          usuario_email: usuarioLogado
+          usuario_email: usuarioLogado,
+          imagem: imagemEnviada
         }),
       });
 
@@ -431,7 +477,7 @@ export default function Home() {
         </div>
       </aside>
 
-      <main className="flex-1 flex flex-col min-w-0 h-full">
+      <main className="flex-1 flex flex-col min-w-0 h-full relative">
         <header className="md:hidden flex items-center justify-between p-3 border-b border-gray-700/50 bg-[#212121]">
           <button onClick={() => setMenuAberto(true)} className="p-2 text-gray-300 hover:text-white">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -515,12 +561,49 @@ export default function Home() {
 
         <div className="w-full flex flex-col items-center bg-[#212121] px-4 pb-6 pt-2">
           <div className="w-full max-w-3xl relative">
+            
+            {/* Caixa de Pré-visualização da Imagem Anexada */}
+            {imagemPreview && (
+              <div className="absolute bottom-[110%] left-0 bg-[#2f2f2f] p-2 rounded-xl border border-gray-700 shadow-lg relative inline-block mb-3">
+                <button 
+                  onClick={limparImagem}
+                  className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 transition-colors text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold"
+                  title="Remover imagem"
+                >
+                  ✕
+                </button>
+                <img src={imagemPreview} alt="Anexo" className="h-20 w-auto rounded-lg object-cover" />
+              </div>
+            )}
+
             <form onSubmit={enviarMensagem} className="relative flex items-center w-full gap-2 bg-[#2f2f2f] rounded-3xl border border-gray-700 shadow-sm px-2">
+              
+              <input 
+                type="file" 
+                accept="image/*" 
+                className="hidden" 
+                ref={fileInputRef} 
+                onChange={handleSelecionarImagem} 
+              />
+              
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="p-2.5 rounded-full transition-colors flex-shrink-0 flex items-center justify-center h-10 w-10 bg-transparent text-gray-400 hover:text-gray-200"
+                title="Anexar imagem"
+                disabled={carregando}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+                </svg>
+              </button>
+
               <button
                 type="button"
                 onClick={alternarMicrofone}
                 className={`p-2.5 rounded-full transition-colors flex-shrink-0 flex items-center justify-center h-10 w-10 ${ouvindo ? "bg-red-500/20 text-red-500 animate-pulse" : "bg-transparent text-gray-400 hover:text-gray-200"}`}
                 title="Ditar mensagem"
+                disabled={carregando}
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path>
@@ -528,19 +611,21 @@ export default function Home() {
                   <line x1="12" y1="19" x2="12" y2="22"></line>
                 </svg>
               </button>
+              
               <input
                 type="text"
                 className="flex-1 bg-transparent text-gray-100 py-3.5 focus:outline-none"
-                placeholder={ouvindo ? "A ouvir..." : "Envie uma mensagem..."}
+                placeholder={ouvindo ? "A ouvir..." : imagemPreview ? "Faça uma pergunta sobre a imagem..." : "Envie uma mensagem..."}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 disabled={carregando}
               />
+              
               <button
                 type="submit"
                 className="bg-white text-black rounded-full hover:bg-gray-200 transition-colors disabled:bg-[#424242] disabled:text-gray-500 flex-shrink-0 flex items-center justify-center h-9 w-9 mr-1"
-                disabled={carregando || !input.trim()}
+                disabled={carregando || (!input.trim() && !imagemBase64)}
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="22" y1="2" x2="11" y2="13"></line>
