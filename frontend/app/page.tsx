@@ -325,7 +325,7 @@ export default function Home() {
     limparImagem();
 
     try {
-      const resposta = await fetch("[https://meu-chatbot-ia-01xd.onrender.com/chat](https://meu-chatbot-ia-01xd.onrender.com/chat)", {
+      const resposta = await fetch("https://meu-chatbot-ia-01xd.onrender.com/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
