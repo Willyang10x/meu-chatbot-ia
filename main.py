@@ -1,8 +1,8 @@
 import os
 import base64
 from datetime import datetime
-from fastapi import FastAPI
 from typing import Optional
+from fastapi import FastAPI
 from pydantic import BaseModel
 from google import genai
 from google.genai import types
@@ -20,7 +20,7 @@ url: str = os.environ.get("SUPABASE_URL", "")
 key: str = os.environ.get("SUPABASE_KEY", "")
 supabase: Client = create_client(url, key)
 
-app = FastAPI(title="Chatbot IA API com Memória, Fallback e Visão Computacional")
+app = FastAPI(title="Chatbot IA API com Memória, Visão e Geração de Imagens")
 
 app.add_middleware(
     CORSMiddleware,
@@ -41,15 +41,35 @@ class MensagemUsuario(BaseModel):
 
 sessoes_chat = {}
 
+def obter_instrucoes_sistema(data_hoje):
+    return f"""Você é um assistente prestativo. Hoje é dia {data_hoje}.
+Você possui a habilidade de gerar imagens. Se o usuário pedir para gerar, criar ou desenhar uma imagem, você NUNCA deve dizer que não consegue. 
+Em vez disso, você deve criar um prompt em INGLÊS muito detalhado e retornar a imagem usando o formato Markdown e a API do Pollinations.
+
+ESTRUTURA OBRIGATÓRIA DA RESPOSTA:
+Aqui está a sua imagem:
+![Descrição](https://image.pollinations.ai/prompt/seu%20prompt%20aqui%20com%20espacos%20substituidos%20por%20%20?width=800&height=800&nologo=true)
+
+EXEMPLO:
+Usuário: Desenha um gato astronauta.
+Você: Aqui está o seu gato astronauta!
+![Gato Astronauta](https://image.pollinations.ai/prompt/a%20cute%20cat%20astronaut%20on%20mars%20cinematic%20lighting?width=800&height=800&nologo=true)
+
+Regras: 
+1. Sempre substitua os espaços do prompt na URL por %20.
+2. O prompt na URL deve ser detalhado e estar sempre em INGLÊS para obter os melhores resultados visuais.
+"""
+
 @app.get("/")
 def read_root():
-    return {"status": "ok", "mensagem": "Backend rodando com Gemini, Fallback Groq e Visão Computacional!"}
+    return {"status": "ok", "mensagem": "Backend rodando com Gemini, Groq, Visão e Geração de Imagens!"}
 
 @app.post("/chat")
 def conversar_com_ia(mensagem: MensagemUsuario):
     sessao = mensagem.sessao_id
     email = mensagem.usuario_email
     data_hoje = datetime.now().strftime("%d/%m/%Y")
+    instrucoes = obter_instrucoes_sistema(data_hoje)
     
     if sessao not in sessoes_chat:
         resposta_banco = supabase.table("mensagens_chat").select("*").eq("sessao_id", sessao).order("criado_em").execute()
@@ -90,13 +110,12 @@ def conversar_com_ia(mensagem: MensagemUsuario):
             model='gemini-2.5-flash',
             history=historico_formatado,
             config=types.GenerateContentConfig(
-                system_instruction=f"Você é um assistente prestativo. Hoje é dia {data_hoje}."
+                system_instruction=instrucoes
             )
         )
         
     chat_atual = sessoes_chat[sessao]
     
-    # Prepara o texto para guardar na base de dados
     texto_db = mensagem.texto
     if mensagem.imagem:
         texto_db += "\n\n*[Imagem anexada]*"
@@ -110,7 +129,6 @@ def conversar_com_ia(mensagem: MensagemUsuario):
     
     texto_resposta = ""
     try:
-        # Se houver imagem, montamos um pacote especial para os "olhos" do Gemini
         prompt_parts = [mensagem.texto]
         if mensagem.imagem:
             img_bytes = base64.b64decode(mensagem.imagem)
@@ -121,9 +139,8 @@ def conversar_com_ia(mensagem: MensagemUsuario):
         response = chat_atual.send_message(prompt_parts)
         texto_resposta = response.text
     except Exception as e:
-        # Fallback para Llama 3 (Groq não suporta imagem, então ignora a foto e envia só o texto)
         resposta_banco = supabase.table("mensagens_chat").select("*").eq("sessao_id", sessao).order("criado_em").execute()
-        groq_messages = [{"role": "system", "content": f"Você é um assistente prestativo. Hoje é dia {data_hoje}."}]
+        groq_messages = [{"role": "system", "content": instrucoes}]
         for msg in resposta_banco.data:
             if msg["autor"] in ["usuario", "ia"]:
                 role = "user" if msg["autor"] == "usuario" else "assistant"
