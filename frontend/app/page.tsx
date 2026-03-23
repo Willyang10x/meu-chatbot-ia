@@ -12,6 +12,7 @@ const supabase = createClient(
 type Mensagem = {
   autor: "usuario" | "ia";
   texto: string;
+  imagem?: string; // Adicionamos a imagem aqui para o chat lembrar dela!
 };
 
 type Sessao = {
@@ -312,9 +313,11 @@ export default function Home() {
       textoMensagem = "Analise esta imagem.";
     }
 
+    // AQUI ESTÁ A MAGIA! Guardamos a imagem no balão do utilizador
     const novaMensagemUsuario: Mensagem = { 
       autor: "usuario", 
-      texto: imagemBase64 ? `${textoMensagem}\n\n*[Imagem anexada]*` : textoMensagem 
+      texto: textoMensagem,
+      imagem: imagemPreview || undefined
     };
     
     setMensagens((prev) => [...prev, novaMensagemUsuario]);
@@ -325,7 +328,7 @@ export default function Home() {
     limparImagem();
 
     try {
-      const resposta = await fetch("https://meu-chatbot-ia-01xd.onrender.com/chat", {
+      const resposta = await fetch("[https://meu-chatbot-ia-01xd.onrender.com/chat](https://meu-chatbot-ia-01xd.onrender.com/chat)", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -535,7 +538,12 @@ export default function Home() {
                         </div>
                       </>
                     ) : (
-                      <p className="whitespace-pre-wrap leading-relaxed">{msg.texto}</p>
+                      <div className="flex flex-col gap-2 items-end">
+                        {msg.imagem && (
+                          <img src={msg.imagem} alt="Anexo enviado" className="max-w-[200px] sm:max-w-[250px] rounded-lg object-contain border border-gray-600 mb-1" />
+                        )}
+                        <p className="whitespace-pre-wrap leading-relaxed">{msg.texto}</p>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -562,7 +570,6 @@ export default function Home() {
         <div className="w-full flex flex-col items-center bg-[#212121] px-4 pb-6 pt-2">
           <div className="w-full max-w-3xl relative">
             
-            {/* Caixa de Pré-visualização da Imagem Anexada */}
             {imagemPreview && (
               <div className="absolute bottom-[110%] left-0 bg-[#2f2f2f] p-2 rounded-xl border border-gray-700 shadow-lg relative inline-block mb-3">
                 <button 
