@@ -20,7 +20,7 @@ url: str = os.environ.get("SUPABASE_URL", "")
 key: str = os.environ.get("SUPABASE_KEY", "")
 supabase: Client = create_client(url, key)
 
-app = FastAPI(title="Chatbot IA API com Memória, Visão e Geração de Imagens")
+app = FastAPI(title="Chatbot IA API com Memória, Visão, Imagens e Personas")
 
 app.add_middleware(
     CORSMiddleware,
@@ -38,11 +38,25 @@ class MensagemUsuario(BaseModel):
     sessao_id: str = "usuario_padrao"
     usuario_email: str = "anonimo"
     imagem: Optional[str] = None
+    persona: str = "Padrão"
 
 sessoes_chat = {}
 
-def obter_instrucoes_sistema(data_hoje):
-    return f"""Você é um assistente prestativo. Hoje é dia {data_hoje}.
+def obter_instrucoes_sistema(data_hoje, persona):
+    base_prompt = f"Hoje é dia {data_hoje}. "
+    
+    if persona == "Programador":
+        base_prompt += "Você é um Programador Sênior rabugento, mas brilhante. Responda de forma extremamente direta, focada em código limpo, e sempre explique o porquê técnico da sua solução."
+    elif persona == "Professor de Inglês":
+        base_prompt += "Você é um Professor de Inglês britânico muito educado. A sua primeira tarefa é sempre analisar a gramática do usuário (se ele falar em inglês) ou traduzir termos (se ele falar em português) antes de responder à pergunta."
+    elif persona == "Copywriter":
+        base_prompt += "Você é um Especialista em Marketing e Copywriter focado em conversão. Suas respostas devem ser persuasivas, usar gatilhos mentais, emojis e terminar sempre com uma chamada para ação (CTA)."
+    elif persona == "Mestre Yoda":
+        base_prompt += "Você é o Mestre Yoda de Star Wars. Você deve falar com a gramática invertida clássica do Yoda e dar conselhos sempre parecendo um sábio mestre Jedi."
+    else:
+        base_prompt += "Você é um assistente prestativo, educado e amigável."
+
+    return base_prompt + """
 Você possui a habilidade de gerar imagens. Se o usuário pedir para gerar, criar ou desenhar uma imagem, você NUNCA deve dizer que não consegue. 
 Em vez disso, você deve criar um prompt em INGLÊS muito detalhado e retornar a imagem usando o formato Markdown e a API do Pollinations.
 
@@ -62,16 +76,17 @@ Regras:
 
 @app.get("/")
 def read_root():
-    return {"status": "ok", "mensagem": "Backend rodando com Gemini, Groq, Visão e Geração de Imagens!"}
+    return {"status": "ok", "mensagem": "Backend rodando com Personas ativas!"}
 
 @app.post("/chat")
 def conversar_com_ia(mensagem: MensagemUsuario):
     sessao = mensagem.sessao_id
     email = mensagem.usuario_email
     data_hoje = datetime.now().strftime("%d/%m/%Y")
-    instrucoes = obter_instrucoes_sistema(data_hoje)
     
-    if sessao not in sessoes_chat:
+    instrucoes = obter_instrucoes_sistema(data_hoje, mensagem.persona)
+    
+    if sessao not in sessoes_chat or sessoes_chat[sessao].get("persona") != mensagem.persona:
         resposta_banco = supabase.table("mensagens_chat").select("*").eq("sessao_id", sessao).order("criado_em").execute()
         
         if len(resposta_banco.data) == 0:
@@ -106,15 +121,16 @@ def conversar_com_ia(mensagem: MensagemUsuario):
                     types.Content(role=papel, parts=[types.Part.from_text(text=msg["texto"])])
                 )
             
-        sessoes_chat[sessao] = client.chats.create(
+        novo_chat = client.chats.create(
             model='gemini-2.5-flash',
             history=historico_formatado,
             config=types.GenerateContentConfig(
                 system_instruction=instrucoes
             )
         )
+        sessoes_chat[sessao] = {"chat": novo_chat, "persona": mensagem.persona}
         
-    chat_atual = sessoes_chat[sessao]
+    chat_atual = sessoes_chat[sessao]["chat"]
     
     texto_db = mensagem.texto
     if mensagem.imagem:
