@@ -353,6 +353,46 @@ export default function Home() {
     }
   };
 
+  const regerarUltimaResposta = async () => {
+    if (mensagens.length < 2 || carregando) return;
+
+    const indexUltimoUser = mensagens.map(m => m.autor).lastIndexOf("usuario");
+    if (indexUltimoUser === -1) return;
+
+    const ultimaMsgUsuario = mensagens[indexUltimoUser];
+
+    setMensagens((prev) => prev.slice(0, indexUltimoUser + 1));
+    setCarregando(true);
+
+    let imagemEnviada = undefined;
+    if (ultimaMsgUsuario.imagem) {
+      imagemEnviada = ultimaMsgUsuario.imagem.split(',')[1];
+    }
+
+    try {
+      const resposta = await fetch("[https://meu-chatbot-ia-01xd.onrender.com/chat](https://meu-chatbot-ia-01xd.onrender.com/chat)", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          texto: ultimaMsgUsuario.texto,
+          sessao_id: sessaoId,
+          usuario_email: usuarioLogado,
+          imagem: imagemEnviada,
+          persona: persona
+        }),
+      });
+
+      const dados = await resposta.json();
+      setMensagens((prev) => [...prev, { autor: "ia", texto: dados.resposta }]);
+      carregarSessoes(usuarioLogado);
+    } catch (error) {
+      console.error(error);
+      setMensagens((prev) => [...prev, { autor: "ia", texto: "Desculpe, ocorreu um erro ao regerar a resposta." }]);
+    } finally {
+      setCarregando(false);
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -632,6 +672,18 @@ export default function Home() {
                               <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg> Ouvir</>
                             )}
                           </button>
+                          
+                          {/* NOVO BOTÃO DE REGERAR APENAS NA ÚLTIMA MENSAGEM */}
+                          {index === mensagens.length - 1 && !carregando && (
+                            <button onClick={regerarUltimaResposta} className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors" title="Regerar resposta">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="1 4 1 10 7 10"></polyline>
+                                <polyline points="23 20 23 14 17 14"></polyline>
+                                <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path>
+                              </svg> 
+                              Regerar
+                            </button>
+                          )}
                         </div>
                       </>
                     ) : (
