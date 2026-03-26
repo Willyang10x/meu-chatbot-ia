@@ -28,6 +28,7 @@ export default function Home() {
   const [erroAuth, setErroAuth] = useState("");
   const [msgSucesso, setMsgSucesso] = useState("");
   const [loadingAuth, setLoadingAuth] = useState(false);
+  const [loadingGoogle, setLoadingGoogle] = useState(false);
   const [usuarioLogado, setUsuarioLogado] = useState("");
   
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
@@ -106,6 +107,23 @@ export default function Home() {
       setErroAuth(error.message || "Ocorreu um erro na autenticação.");
     } finally {
       setLoadingAuth(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setErroAuth("");
+    setLoadingGoogle(true);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin,
+        }
+      });
+      if (error) throw error;
+    } catch (error: any) {
+      setErroAuth(error.message || "Erro ao conectar com o Google.");
+      setLoadingGoogle(false);
     }
   };
 
@@ -353,6 +371,46 @@ export default function Home() {
     }
   };
 
+  const regerarUltimaResposta = async () => {
+    if (mensagens.length < 2 || carregando) return;
+
+    const indexUltimoUser = mensagens.map(m => m.autor).lastIndexOf("usuario");
+    if (indexUltimoUser === -1) return;
+
+    const ultimaMsgUsuario = mensagens[indexUltimoUser];
+
+    setMensagens((prev) => prev.slice(0, indexUltimoUser + 1));
+    setCarregando(true);
+
+    let imagemEnviada = undefined;
+    if (ultimaMsgUsuario.imagem) {
+      imagemEnviada = ultimaMsgUsuario.imagem.split(',')[1];
+    }
+
+    try {
+      const resposta = await fetch("[https://meu-chatbot-ia-01xd.onrender.com/chat](https://meu-chatbot-ia-01xd.onrender.com/chat)", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          texto: ultimaMsgUsuario.texto,
+          sessao_id: sessaoId,
+          usuario_email: usuarioLogado,
+          imagem: imagemEnviada,
+          persona: persona
+        }),
+      });
+
+      const dados = await resposta.json();
+      setMensagens((prev) => [...prev, { autor: "ia", texto: dados.resposta }]);
+      carregarSessoes(usuarioLogado);
+    } catch (error) {
+      console.error(error);
+      setMensagens((prev) => [...prev, { autor: "ia", texto: "Desculpe, ocorreu um erro ao regerar a resposta." }]);
+    } finally {
+      setCarregando(false);
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -445,6 +503,28 @@ export default function Home() {
           {msgSucesso && <div className="mb-4 p-3 bg-green-900/50 border border-green-500 rounded-lg text-green-200 text-sm">{msgSucesso}</div>}
           
           <form onSubmit={handleAuth} className="flex flex-col gap-4">
+            
+            <button
+              type="button"
+              onClick={handleGoogleLogin}
+              disabled={loadingGoogle || loadingAuth}
+              className="w-full bg-white text-gray-900 border border-gray-300 font-semibold py-3 rounded-xl hover:bg-gray-100 transition-colors flex items-center justify-center gap-3 disabled:opacity-50"
+            >
+              <svg width="20" height="20" viewBox="0 0 48 48">
+                <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/>
+                <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/>
+                <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/>
+                <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/>
+              </svg>
+              {loadingGoogle ? "Aguarde..." : "Continuar com o Google"}
+            </button>
+
+            <div className="flex items-center my-1">
+              <div className="flex-1 border-t border-gray-700"></div>
+              <span className="px-3 text-gray-400 text-sm">ou</span>
+              <div className="flex-1 border-t border-gray-700"></div>
+            </div>
+
             <input
               type="email"
               required
@@ -465,10 +545,10 @@ export default function Home() {
             )}
             <button
               type="submit"
-              disabled={loadingAuth}
-              className="w-full bg-white text-black font-semibold py-3 rounded-xl hover:bg-gray-200 transition-colors disabled:opacity-50"
+              disabled={loadingAuth || loadingGoogle}
+              className="w-full bg-transparent border border-gray-500 text-gray-300 font-semibold py-3 rounded-xl hover:bg-[#3a3a3a] transition-colors disabled:opacity-50"
             >
-              {loadingAuth ? "Aguarde..." : modoAuth === "login" ? "Entrar" : modoAuth === "cadastro" ? "Registar" : "Enviar Email"}
+              {loadingAuth ? "Aguarde..." : modoAuth === "login" ? "Entrar com Email" : modoAuth === "cadastro" ? "Registar com Email" : "Enviar Email"}
             </button>
           </form>
 
@@ -632,6 +712,17 @@ export default function Home() {
                               <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg> Ouvir</>
                             )}
                           </button>
+                          
+                          {index === mensagens.length - 1 && !carregando && (
+                            <button onClick={regerarUltimaResposta} className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors" title="Regerar resposta">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="1 4 1 10 7 10"></polyline>
+                                <polyline points="23 20 23 14 17 14"></polyline>
+                                <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path>
+                              </svg> 
+                              Regerar
+                            </button>
+                          )}
                         </div>
                       </>
                     ) : (
