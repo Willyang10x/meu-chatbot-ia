@@ -51,6 +51,13 @@ export default function Home() {
   const reconhecimentoRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const sugestoes = [
+    { icone: "⚛️", texto: "Explica a diferença entre useState e useEffect no React" },
+    { icone: "🐍", texto: "Como faço um CRUD básico conectando Python e Supabase?" },
+    { icone: "✉️", texto: "Escreve um email profissional para enviar o meu currículo" },
+    { icone: "🎨", texto: "Gera uma imagem de um setup gamer cyberpunk com luzes de neon" }
+  ];
+
   const rolarParaOFinal = () => {
     fimDasMensagensRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -319,9 +326,12 @@ export default function Home() {
     if (window.innerWidth < 768) setMenuAberto(false);
   };
 
-  const enviarMensagem = async (e?: React.FormEvent) => {
+  const enviarMensagem = async (e?: React.FormEvent, textoDireto?: string) => {
     if (e) e.preventDefault();
-    if (!input.trim() && !imagemBase64) return;
+    
+    let textoMensagem = textoDireto || input;
+    
+    if (!textoMensagem.trim() && !imagemBase64) return;
     if (!sessaoId || !usuarioLogado) return;
 
     if (ouvindo) {
@@ -329,7 +339,6 @@ export default function Home() {
       setOuvindo(false);
     }
 
-    let textoMensagem = input;
     if (!textoMensagem.trim() && imagemBase64) {
       textoMensagem = "Analise esta imagem.";
     }
@@ -672,13 +681,28 @@ export default function Home() {
 
         <div className="flex-1 overflow-y-auto w-full flex flex-col items-center">
           {mensagens.length === 0 ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-center px-4">
-              <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center mb-6">
+            <div className="flex-1 flex flex-col items-center justify-center text-center px-4 max-w-3xl mx-auto w-full">
+              <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center mb-6 shadow-lg">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
                 </svg>
               </div>
-              <h2 className="text-2xl font-semibold text-gray-300">Como posso ajudar hoje?</h2>
+              <h2 className="text-2xl font-semibold text-gray-200 mb-8">Como posso ajudar hoje?</h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full max-w-2xl px-2">
+                {sugestoes.map((sugestao, i) => (
+                  <button
+                    key={i}
+                    onClick={() => enviarMensagem(undefined, sugestao.texto)}
+                    className="flex items-start gap-3 p-4 bg-[#2f2f2f] hover:bg-[#3a3a3a] border border-gray-700 hover:border-gray-500 rounded-xl transition-all text-left group"
+                  >
+                    <span className="text-xl">{sugestao.icone}</span>
+                    <span className="text-sm text-gray-300 group-hover:text-white mt-0.5 leading-relaxed">
+                      {sugestao.texto}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
           ) : (
             <div className="w-full max-w-3xl flex flex-col gap-6 px-4 py-8">
