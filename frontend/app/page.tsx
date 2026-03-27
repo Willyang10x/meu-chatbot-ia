@@ -47,6 +47,9 @@ export default function Home() {
   
   const [persona, setPersona] = useState<string>("Padrão");
   
+  const [editandoIndex, setEditandoIndex] = useState<number | null>(null);
+  const [textoEdicao, setTextoEdicao] = useState("");
+  
   const fimDasMensagensRef = useRef<HTMLDivElement>(null);
   const reconhecimentoRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -292,6 +295,16 @@ export default function Home() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  const iniciarEdicao = (index: number, textoAtual: string) => {
+    setEditandoIndex(index);
+    setTextoEdicao(textoAtual);
+  };
+
+  const cancelarEdicao = () => {
+    setEditandoIndex(null);
+    setTextoEdicao("");
+  };
+
   useEffect(() => {
     if (!usuarioLogado) return;
     
@@ -415,6 +428,53 @@ export default function Home() {
     } catch (error) {
       console.error(error);
       setMensagens((prev) => [...prev, { autor: "ia", texto: "Desculpe, ocorreu um erro ao regerar a resposta." }]);
+    } finally {
+      setCarregando(false);
+    }
+  };
+
+  const regerarComEdicao = async (index: number) => {
+    if (!textoEdicao.trim() || carregando) return;
+
+    const textoNovo = textoEdicao;
+    const imagemAntiga = mensagens[index].imagem;
+    cancelarEdicao();
+
+    const mensagensAnteriores = mensagens.slice(0, index);
+
+    const novaMensagemUsuario: Mensagem = {
+      autor: "usuario",
+      texto: textoNovo,
+      imagem: imagemAntiga
+    };
+
+    setMensagens([...mensagensAnteriores, novaMensagemUsuario]);
+    setCarregando(true);
+
+    let imagemEnviada = undefined;
+    if (imagemAntiga) {
+      imagemEnviada = imagemAntiga.split(',')[1];
+    }
+
+    try {
+      const resposta = await fetch("[https://meu-chatbot-ia-01xd.onrender.com/chat](https://meu-chatbot-ia-01xd.onrender.com/chat)", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          texto: textoNovo,
+          sessao_id: sessaoId,
+          usuario_email: usuarioLogado,
+          imagem: imagemEnviada,
+          persona: persona
+        }),
+      });
+
+      const dados = await resposta.json();
+      setMensagens((prev) => [...prev, { autor: "ia", texto: dados.resposta }]);
+      carregarSessoes(usuarioLogado);
+    } catch (error) {
+      console.error(error);
+      setMensagens((prev) => [...prev, { autor: "ia", texto: "Desculpe, ocorreu um erro ao regerar a resposta editada." }]);
     } finally {
       setCarregando(false);
     }
@@ -715,7 +775,7 @@ export default function Home() {
                       </svg>
                     </div>
                   )}
-                  <div className={`max-w-[85%] md:max-w-[75%] px-5 py-3 ${msg.autor === "usuario" ? "bg-[#2f2f2f] text-gray-100 rounded-3xl" : "flex flex-col bg-transparent text-gray-100 px-0 rounded-none w-full"}`}>
+                  <div className={`max-w-[85%] md:max-w-[75%] px-5 py-3 ${msg.autor === "usuario" ? "bg-[#2f2f2f] text-gray-100 rounded-3xl group" : "flex flex-col bg-transparent text-gray-100 px-0 rounded-none w-full"}`}>
                     {msg.autor === "ia" ? (
                       <>
                         <div className="prose prose-invert max-w-none text-gray-200 leading-relaxed">
@@ -750,11 +810,37 @@ export default function Home() {
                         </div>
                       </>
                     ) : (
-                      <div className="flex flex-col gap-2 items-end">
-                        {msg.imagem && (
-                          <img src={msg.imagem} alt="Anexo enviado" className="max-w-[200px] sm:max-w-[250px] rounded-lg object-contain border border-gray-600 mb-1" />
+                      <div className="flex flex-col gap-1 items-end w-full">
+                        {editandoIndex === index ? (
+                          <div className="w-full flex flex-col gap-3 min-w-[200px] sm:min-w-[300px]">
+                            <textarea
+                              value={textoEdicao}
+                              onChange={(e) => setTextoEdicao(e.target.value)}
+                              className="w-full bg-[#1e1e1e] text-gray-100 p-3 rounded-xl border border-gray-600 focus:outline-none focus:ring-1 focus:ring-gray-400 resize-y min-h-[80px] text-sm"
+                            />
+                            <div className="flex justify-end gap-2">
+                              <button onClick={cancelarEdicao} className="px-3 py-1.5 text-xs font-medium text-gray-300 hover:text-white bg-[#3a3a3a] rounded-lg transition-colors">Cancelar</button>
+                              <button onClick={() => regerarComEdicao(index)} disabled={!textoEdicao.trim() || carregando} className="px-3 py-1.5 text-xs font-medium text-black bg-white hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50">Salvar e Enviar</button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            {msg.imagem && (
+                              <img src={msg.imagem} alt="Anexo enviado" className="max-w-[200px] sm:max-w-[250px] rounded-lg object-contain border border-gray-600 mb-1" />
+                            )}
+                            <p className="whitespace-pre-wrap leading-relaxed">{msg.texto}</p>
+                            {!carregando && (
+                              <button
+                                onClick={() => iniciarEdicao(index, msg.texto)}
+                                className="opacity-0 group-hover:opacity-100 flex items-center gap-1.5 text-[11px] text-gray-400 hover:text-white mt-1 transition-all duration-200"
+                                title="Editar mensagem"
+                              >
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                Editar
+                              </button>
+                            )}
+                          </>
                         )}
-                        <p className="whitespace-pre-wrap leading-relaxed">{msg.texto}</p>
                       </div>
                     )}
                   </div>
