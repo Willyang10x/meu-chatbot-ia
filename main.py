@@ -1,5 +1,6 @@
 import os
 import base64
+import traceback
 from datetime import datetime
 from typing import Optional
 from fastapi import FastAPI
@@ -63,15 +64,6 @@ Em vez disso, você deve criar um prompt em INGLÊS muito detalhado e retornar a
 ESTRUTURA OBRIGATÓRIA DA RESPOSTA:
 Aqui está a sua imagem:
 ![Descrição](https://image.pollinations.ai/prompt/seu%20prompt%20aqui%20com%20espacos%20substituidos%20por%20%20?width=800&height=800&nologo=true)
-
-EXEMPLO:
-Usuário: Desenha um gato astronauta.
-Você: Aqui está o seu gato astronauta!
-![Gato Astronauta](https://image.pollinations.ai/prompt/a%20cute%20cat%20astronaut%20on%20mars%20cinematic%20lighting?width=800&height=800&nologo=true)
-
-Regras: 
-1. Sempre substitua os espaços do prompt na URL por %20.
-2. O prompt na URL deve ser detalhado e estar sempre em INGLÊS para obter os melhores resultados visuais.
 """
 
 @app.get("/")
@@ -80,105 +72,124 @@ def read_root():
 
 @app.post("/chat")
 def conversar_com_ia(mensagem: MensagemUsuario):
-    sessao = mensagem.sessao_id
-    email = mensagem.usuario_email
-    data_hoje = datetime.now().strftime("%d/%m/%Y")
-    
-    instrucoes = obter_instrucoes_sistema(data_hoje, mensagem.persona)
-    
-    if sessao not in sessoes_chat or sessoes_chat[sessao].get("persona") != mensagem.persona:
-        resposta_banco = supabase.table("mensagens_chat").select("*").eq("sessao_id", sessao).order("criado_em").execute()
-        
-        if len(resposta_banco.data) == 0:
-            try:
-                resposta_titulo = client.models.generate_content(
-                    model='gemini-2.5-flash',
-                    contents=f"Crie um título extremamente curto (máximo 4 palavras) para resumir esta mensagem: '{mensagem.texto}'. Responda apenas com o título."
-                )
-                titulo_gerado = resposta_titulo.text.strip()
-            except Exception:
-                try:
-                    resp_groq = groq_client.chat.completions.create(
-                        messages=[{"role": "user", "content": f"Crie um título curto (máximo 4 palavras) para resumir esta mensagem: '{mensagem.texto}'."}],
-                        model="llama3-8b-8192",
-                    )
-                    titulo_gerado = resp_groq.choices[0].message.content.strip()
-                except Exception:
-                    titulo_gerado = mensagem.texto[:35] + "..."
-                
-            supabase.table("mensagens_chat").insert({
-                "sessao_id": sessao,
-                "autor": "titulo",
-                "texto": titulo_gerado,
-                "usuario_email": email
-            }).execute()
-        
-        historico_formatado = []
-        for msg in resposta_banco.data:
-            if msg["autor"] in ["usuario", "ia"]:
-                papel = "user" if msg["autor"] == "usuario" else "model"
-                historico_formatado.append(
-                    types.Content(role=papel, parts=[types.Part.from_text(text=msg["texto"])])
-                )
-            
-        novo_chat = client.chats.create(
-            model='gemini-2.5-flash',
-            history=historico_formatado,
-            config=types.GenerateContentConfig(
-                system_instruction=instrucoes
-            )
-        )
-        sessoes_chat[sessao] = {"chat": novo_chat, "persona": mensagem.persona}
-        
-    chat_atual = sessoes_chat[sessao]["chat"]
-    
-    texto_db = mensagem.texto
-    if mensagem.imagem:
-        texto_db += "\n\n*[Imagem anexada]*"
-    
-    supabase.table("mensagens_chat").insert({
-        "sessao_id": sessao,
-        "autor": "usuario",
-        "texto": texto_db,
-        "usuario_email": email
-    }).execute()
-    
-    texto_resposta = ""
+    # ESCUDO PROTETOR GLOBAL: Captura qualquer erro para não crashar o servidor
     try:
-        prompt_parts = [mensagem.texto]
-        if mensagem.imagem:
-            img_bytes = base64.b64decode(mensagem.imagem)
-            prompt_parts.append(
-                types.Part.from_bytes(data=img_bytes, mime_type="image/jpeg")
-            )
-            
-        response = chat_atual.send_message(prompt_parts)
-        texto_resposta = response.text
-    except Exception as e:
-        resposta_banco = supabase.table("mensagens_chat").select("*").eq("sessao_id", sessao).order("criado_em").execute()
-        groq_messages = [{"role": "system", "content": instrucoes}]
-        for msg in resposta_banco.data:
-            if msg["autor"] in ["usuario", "ia"]:
-                role = "user" if msg["autor"] == "usuario" else "assistant"
-                groq_messages.append({"role": role, "content": msg["texto"]})
+        sessao = mensagem.sessao_id
+        email = mensagem.usuario_email
+        data_hoje = datetime.now().strftime("%d/%m/%Y")
         
-        chat_completion = groq_client.chat.completions.create(
-            messages=groq_messages,
-            model="llama3-8b-8192",
-        )
-        texto_resposta = chat_completion.choices[0].message.content
-    
-    supabase.table("mensagens_chat").insert({
-        "sessao_id": sessao,
-        "autor": "ia",
-        "texto": texto_resposta,
-        "usuario_email": email
-    }).execute()
-    
-    return {
-        "resposta": texto_resposta,
-        "sessao_id": sessao
-    }
+        instrucoes = obter_instrucoes_sistema(data_hoje, mensagem.persona)
+        
+        if sessao not in sessoes_chat or sessoes_chat[sessao].get("persona") != mensagem.persona:
+            resposta_banco = supabase.table("mensagens_chat").select("*").eq("sessao_id", sessao).order("criado_em").execute()
+            
+            if len(resposta_banco.data) == 0:
+                try:
+                    resposta_titulo = client.models.generate_content(
+                        model='gemini-2.5-flash',
+                        contents=f"Crie um título extremamente curto (máximo 4 palavras) para resumir esta mensagem: '{mensagem.texto}'. Responda apenas com o título."
+                    )
+                    titulo_gerado = resposta_titulo.text.strip()
+                except Exception:
+                    try:
+                        resp_groq = groq_client.chat.completions.create(
+                            messages=[{"role": "user", "content": f"Crie um título curto (máximo 4 palavras) para resumir esta mensagem: '{mensagem.texto}'."}],
+                            model="llama3-8b-8192",
+                        )
+                        titulo_gerado = resp_groq.choices[0].message.content.strip()
+                    except Exception:
+                        titulo_gerado = mensagem.texto[:35] + "..."
+                    
+                supabase.table("mensagens_chat").insert({
+                    "sessao_id": sessao,
+                    "autor": "titulo",
+                    "texto": titulo_gerado,
+                    "usuario_email": email
+                }).execute()
+            
+            historico_formatado = []
+            for msg in resposta_banco.data:
+                if msg["autor"] in ["usuario", "ia"]:
+                    papel = "user" if msg["autor"] == "usuario" else "model"
+                    historico_formatado.append(
+                        types.Content(role=papel, parts=[types.Part.from_text(text=msg["texto"])])
+                    )
+                
+            novo_chat = client.chats.create(
+                model='gemini-2.5-flash',
+                history=historico_formatado,
+                config=types.GenerateContentConfig(
+                    system_instruction=instrucoes
+                )
+            )
+            sessoes_chat[sessao] = {"chat": novo_chat, "persona": mensagem.persona}
+            
+        chat_atual = sessoes_chat[sessao]["chat"]
+        
+        texto_db = mensagem.texto
+        if mensagem.imagem:
+            texto_db += "\n\n*[Imagem anexada]*"
+        
+        supabase.table("mensagens_chat").insert({
+            "sessao_id": sessao,
+            "autor": "usuario",
+            "texto": texto_db,
+            "usuario_email": email
+        }).execute()
+        
+        texto_resposta = ""
+        try:
+            prompt_parts = [mensagem.texto]
+            if mensagem.imagem:
+                img_bytes = base64.b64decode(mensagem.imagem)
+                prompt_parts.append(
+                    types.Part.from_bytes(data=img_bytes, mime_type="image/jpeg")
+                )
+                
+            response = chat_atual.send_message(prompt_parts)
+            texto_resposta = response.text
+        except Exception as e_gemini:
+            # Se o Gemini falhar, tenta o Groq
+            try:
+                resposta_banco = supabase.table("mensagens_chat").select("*").eq("sessao_id", sessao).order("criado_em").execute()
+                groq_messages = [{"role": "system", "content": instrucoes}]
+                for msg in resposta_banco.data:
+                    if msg["autor"] in ["usuario", "ia"]:
+                        role = "user" if msg["autor"] == "usuario" else "assistant"
+                        groq_messages.append({"role": role, "content": msg["texto"]})
+                
+                chat_completion = groq_client.chat.completions.create(
+                    messages=groq_messages,
+                    model="llama3-8b-8192",
+                )
+                texto_resposta = chat_completion.choices[0].message.content
+            except Exception as e_groq:
+                # Se ambos falharem, lança o erro para o escudo protetor
+                raise Exception(f"Gemini falhou ({str(e_gemini)}) E Groq falhou ({str(e_groq)})")
+        
+        supabase.table("mensagens_chat").insert({
+            "sessao_id": sessao,
+            "autor": "ia",
+            "texto": texto_resposta,
+            "usuario_email": email
+        }).execute()
+        
+        return {
+            "resposta": texto_resposta,
+            "sessao_id": sessao
+        }
+        
+    except Exception as erro_fatal:
+        # Se QUALQUER COISA falhar (banco de dados, API, etc), ele entra aqui!
+        erro_detalhado = traceback.format_exc()
+        print("ERRO CRÍTICO CAPTURADO:\n", erro_detalhado, flush=True)
+        
+        mensagem_erro = f"**Ops! Encontrei um erro no Backend 🚨**\n\nDetalhes para o desenvolvedor:\n```text\n{str(erro_fatal)}\n```"
+        
+        return {
+            "resposta": mensagem_erro,
+            "sessao_id": mensagem.sessao_id
+        }
 
 @app.get("/chat/{sessao_id}")
 def listar_mensagens(sessao_id: str):
