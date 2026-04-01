@@ -779,7 +779,9 @@ export default function Home() {
                     {msg.autor === "ia" ? (
                       <>
                         <div className="prose prose-invert max-w-none text-gray-200 leading-relaxed">
-                          <ReactMarkdown>{msg.texto}</ReactMarkdown>
+                          <ReactMarkdown>
+                            {msg.texto.replace(/!\[(.*?)\]\((.*?)\)/g, (match, alt, url) => `![${alt}](${url.replace(/ /g, '%20')})`)}
+                          </ReactMarkdown>
                         </div>
                         <div className="flex justify-start mt-3 gap-4">
                           <button onClick={() => copiarTexto(msg.texto, index)} className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors" title="Copiar resposta">
