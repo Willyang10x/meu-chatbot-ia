@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import { createClient } from "@supabase/supabase-js";
-import { jsPDF } from "jspdf";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL as string,
@@ -370,7 +369,7 @@ export default function Home() {
     limparImagem();
 
     try {
-      const resposta = await fetch("[https://meu-chatbot-ia-01xd.onrender.com/chat](https://meu-chatbot-ia-01xd.onrender.com/chat)", {
+      const resposta = await fetch("https://meu-chatbot-ia-01xd.onrender.com/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -410,7 +409,7 @@ export default function Home() {
     }
 
     try {
-      const resposta = await fetch("[https://meu-chatbot-ia-01xd.onrender.com/chat](https://meu-chatbot-ia-01xd.onrender.com/chat)", {
+      const resposta = await fetch("https://meu-chatbot-ia-01xd.onrender.com/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -457,7 +456,7 @@ export default function Home() {
     }
 
     try {
-      const resposta = await fetch("[https://meu-chatbot-ia-01xd.onrender.com/chat](https://meu-chatbot-ia-01xd.onrender.com/chat)", {
+      const resposta = await fetch("https://meu-chatbot-ia-01xd.onrender.com/chat)", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -485,69 +484,6 @@ export default function Home() {
       e.preventDefault();
       enviarMensagem();
     }
-  };
-
-  const exportarConversaPDF = () => {
-    if (mensagens.length === 0) {
-      alert("Não há mensagens para exportar.");
-      return;
-    }
-
-    const doc = new jsPDF();
-    const margemEsq = 15;
-    let posicaoY = 20;
-    const larguraMaxima = 180;
-
-    const sessaoAtual = sessoes.find(s => s.id === sessaoId);
-    const tituloArquivo = sessaoAtual ? sessaoAtual.titulo.replace(/[^a-z0-9]/gi, '_').toLowerCase() : 'conversa';
-
-    doc.setFontSize(16);
-    doc.setFont("helvetica", "bold");
-    doc.text("Histórico da Conversa - Chat IA", margemEsq, posicaoY);
-    posicaoY += 8;
-
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Data: ${new Date().toLocaleString('pt-PT')}`, margemEsq, posicaoY);
-    posicaoY += 5;
-    
-    doc.line(margemEsq, posicaoY, 195, posicaoY);
-    posicaoY += 10;
-
-    mensagens.forEach((msg) => {
-      const autor = msg.autor === "usuario" ? "Você:" : "Inteligência Artificial:";
-      
-      let textoLimpo = msg.texto
-        .replace(/\*\*(.*?)\*\*/g, '$1')
-        .replace(/\*(.*?)\*/g, '$1')
-        .replace(/!\[.*?\]\(.*?\)/g, "[Imagem Gerada Aqui]");
-
-      doc.setFont("helvetica", "bold");
-      
-      if (posicaoY > 270) {
-        doc.addPage();
-        posicaoY = 20;
-      }
-      
-      doc.text(autor, margemEsq, posicaoY);
-      posicaoY += 6;
-
-      doc.setFont("helvetica", "normal");
-      const linhasTexto = doc.splitTextToSize(textoLimpo, larguraMaxima);
-      
-      for (let i = 0; i < linhasTexto.length; i++) {
-        if (posicaoY > 280) {
-          doc.addPage();
-          posicaoY = 20;
-        }
-        doc.text(linhasTexto[i], margemEsq, posicaoY);
-        posicaoY += 6;
-      }
-      
-      posicaoY += 8;
-    });
-
-    doc.save(`chat_${tituloArquivo}.pdf`);
   };
 
   if (!usuarioLogado) {
@@ -721,21 +657,6 @@ export default function Home() {
               <option value="Copywriter">✍️ Copywriter</option>
               <option value="Mestre Yoda">👽 Mestre Yoda</option>
             </select>
-
-            <button
-              onClick={exportarConversaPDF}
-              disabled={mensagens.length === 0}
-              className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 bg-red-900/40 hover:bg-red-800/60 text-xs sm:text-sm text-red-200 rounded-lg transition-colors border border-red-800/50 disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Exportar Conversa em PDF"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                <polyline points="14 2 14 8 20 8"></polyline>
-                <line x1="12" y1="18" x2="12" y2="12"></line>
-                <line x1="9" y1="15" x2="15" y2="15"></line>
-              </svg>
-              <span className="hidden sm:inline">PDF</span>
-            </button>
           </div>
         </header>
 
@@ -779,7 +700,9 @@ export default function Home() {
                     {msg.autor === "ia" ? (
                       <>
                         <div className="prose prose-invert max-w-none text-gray-200 leading-relaxed">
-                          <ReactMarkdown>{msg.texto}</ReactMarkdown>
+                          <ReactMarkdown>
+                            {msg.texto.replace(/!\[(.*?)\]\((.*?)\)/g, (match, alt, url) => `![${alt}](${url.replace(/ /g, '%20')})`)}
+                          </ReactMarkdown>
                         </div>
                         <div className="flex justify-start mt-3 gap-4">
                           <button onClick={() => copiarTexto(msg.texto, index)} className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors" title="Copiar resposta">
@@ -945,6 +868,5 @@ export default function Home() {
         </div>
       </main>
     </div>
-    
   );
 }
