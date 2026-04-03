@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import { createClient } from "@supabase/supabase-js";
+import { motion, AnimatePresence } from "framer-motion";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL as string,
@@ -18,6 +19,15 @@ type Mensagem = {
 type Sessao = {
   id: string;
   titulo: string;
+};
+
+// --- CONFIGURAÇÃO DOS TEMAS DAS PERSONAS ---
+const temasPersona: Record<string, { bg: string; button: string; border: string; text: string; glow: string }> = {
+  "Padrão": { bg: "bg-[#212121]", button: "bg-white text-black hover:bg-gray-200", border: "border-gray-700", text: "text-gray-100", glow: "shadow-[0_0_15px_rgba(255,255,255,0.05)]" },
+  "Programador": { bg: "bg-[#0d1117]", button: "bg-[#2f81f7] text-white hover:bg-[#1f6feb]", border: "border-[#30363d]", text: "text-[#c9d1d9]", glow: "shadow-[0_0_15px_rgba(47,129,247,0.15)]" },
+  "Professor de Inglês": { bg: "bg-[#2a1b1b]", button: "bg-[#da3633] text-white hover:bg-[#b32b29]", border: "border-[#5c3a3a]", text: "text-[#f2eaea]", glow: "shadow-[0_0_15px_rgba(218,54,51,0.15)]" },
+  "Copywriter": { bg: "bg-[#2b2210]", button: "bg-[#e3b341] text-black hover:bg-[#c99f38]", border: "border-[#665329]", text: "text-[#f5ecd8]", glow: "shadow-[0_0_15px_rgba(227,179,65,0.15)]" },
+  "Mestre Yoda": { bg: "bg-[#142416]", button: "bg-[#4ade80] text-black hover:bg-[#22c55e]", border: "border-[#2c5232]", text: "text-[#dcfce7]", glow: "shadow-[0_0_15px_rgba(74,222,128,0.15)]" }
 };
 
 export default function Home() {
@@ -52,6 +62,9 @@ export default function Home() {
   const fimDasMensagensRef = useRef<HTMLDivElement>(null);
   const reconhecimentoRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // O tema atual selecionado
+  const tema = temasPersona[persona] || temasPersona["Padrão"];
 
   const sugestoes = [
     { icone: "⚛️", texto: "Explica a diferença entre useState e useEffect no React" },
@@ -486,13 +499,18 @@ export default function Home() {
     }
   };
 
+  // --- TELA DE LOGIN ---
   if (!usuarioLogado) {
     return (
-      <div className="flex flex-col h-screen bg-[#212121] text-gray-100 font-sans items-center justify-center p-4">
-        <div className="w-full max-w-md bg-[#2f2f2f] p-8 rounded-2xl shadow-xl border border-gray-700/50">
+      <div className={`flex flex-col h-screen ${tema.bg} ${tema.text} font-sans items-center justify-center p-4 transition-colors duration-500`}>
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`w-full max-w-md bg-black/40 backdrop-blur-xl p-8 rounded-3xl shadow-2xl border ${tema.border} ${tema.glow}`}
+        >
           <div className="flex justify-center mb-6">
-            <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <div className={`w-16 h-16 rounded-full flex items-center justify-center ${tema.button}`}>
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
               </svg>
             </div>
@@ -504,8 +522,8 @@ export default function Home() {
             {modoAuth === "login" ? "Insira os seus dados para entrar" : modoAuth === "cadastro" ? "Registe-se para aceder ao chat" : "Enviaremos um link para o seu email"}
           </p>
 
-          {erroAuth && <div className="mb-4 p-3 bg-red-900/50 border border-red-500 rounded-lg text-red-200 text-sm">{erroAuth}</div>}
-          {msgSucesso && <div className="mb-4 p-3 bg-green-900/50 border border-green-500 rounded-lg text-green-200 text-sm">{msgSucesso}</div>}
+          {erroAuth && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-4 p-3 bg-red-900/50 border border-red-500 rounded-lg text-red-200 text-sm">{erroAuth}</motion.div>}
+          {msgSucesso && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-4 p-3 bg-green-900/50 border border-green-500 rounded-lg text-green-200 text-sm">{msgSucesso}</motion.div>}
           
           <form onSubmit={handleAuth} className="flex flex-col gap-4">
             
@@ -513,7 +531,7 @@ export default function Home() {
               type="button"
               onClick={handleGoogleLogin}
               disabled={loadingGoogle || loadingAuth}
-              className="w-full bg-white text-gray-900 border border-gray-300 font-semibold py-3 rounded-xl hover:bg-gray-100 transition-colors flex items-center justify-center gap-3 disabled:opacity-50"
+              className="w-full bg-white text-gray-900 border border-gray-300 font-semibold py-3 rounded-xl hover:bg-gray-100 transition-colors flex items-center justify-center gap-3 disabled:opacity-50 shadow-md"
             >
               <svg width="20" height="20" viewBox="0 0 48 48">
                 <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/>
@@ -526,7 +544,7 @@ export default function Home() {
 
             <div className="flex items-center my-1">
               <div className="flex-1 border-t border-gray-700"></div>
-              <span className="px-3 text-gray-400 text-sm">ou</span>
+              <span className="px-3 text-gray-500 text-sm">ou</span>
               <div className="flex-1 border-t border-gray-700"></div>
             </div>
 
@@ -536,7 +554,7 @@ export default function Home() {
               placeholder="seu.email@exemplo.com"
               value={emailInput}
               onChange={(e) => setEmailInput(e.target.value)}
-              className="w-full bg-[#212121] text-gray-100 px-4 py-3 rounded-xl border border-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all"
+              className={`w-full bg-black/20 ${tema.text} px-4 py-3 rounded-xl border ${tema.border} focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all`}
             />
             {modoAuth !== "esqueci" && (
               <input
@@ -545,13 +563,13 @@ export default function Home() {
                 placeholder="Sua senha"
                 value={senhaInput}
                 onChange={(e) => setSenhaInput(e.target.value)}
-                className="w-full bg-[#212121] text-gray-100 px-4 py-3 rounded-xl border border-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all"
+                className={`w-full bg-black/20 ${tema.text} px-4 py-3 rounded-xl border ${tema.border} focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all`}
               />
             )}
             <button
               type="submit"
               disabled={loadingAuth || loadingGoogle}
-              className="w-full bg-transparent border border-gray-500 text-gray-300 font-semibold py-3 rounded-xl hover:bg-[#3a3a3a] transition-colors disabled:opacity-50"
+              className={`w-full font-bold py-3 rounded-xl transition-all disabled:opacity-50 ${tema.button}`}
             >
               {loadingAuth ? "Aguarde..." : modoAuth === "login" ? "Entrar com Email" : modoAuth === "cadastro" ? "Registar com Email" : "Enviar Email"}
             </button>
@@ -567,42 +585,56 @@ export default function Home() {
               <button onClick={() => { setModoAuth("login"); setErroAuth(""); setMsgSucesso(""); }} className="text-gray-400 hover:text-white transition-colors">Já tem conta? Entrar</button>
             )}
           </div>
-        </div>
+        </motion.div>
       </div>
     );
   }
 
+  // --- TELA PRINCIPAL (CHAT) ---
   return (
-    <div className="flex h-screen bg-[#212121] text-gray-100 font-sans overflow-hidden">
-      {menuAberto && (
-        <div 
-          className="fixed inset-0 bg-black/60 z-40 md:hidden" 
-          onClick={() => setMenuAberto(false)}
-        />
-      )}
+    <div className={`flex h-screen ${tema.bg} ${tema.text} font-sans overflow-hidden transition-colors duration-500`}>
+      
+      {/* Menu Overlay Mobile Animado */}
+      <AnimatePresence>
+        {menuAberto && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden" 
+            onClick={() => setMenuAberto(false)}
+          />
+        )}
+      </AnimatePresence>
 
-      <aside className={`${menuAberto ? "translate-x-0" : "-translate-x-full"} md:translate-x-0 fixed md:relative z-50 h-full w-64 bg-[#171717] flex-shrink-0 flex flex-col transition-transform duration-300`}>
-        <div className="p-3">
+      {/* Sidebar Animada */}
+      <motion.aside 
+        className={`fixed md:relative z-50 h-full w-64 bg-black/40 backdrop-blur-md flex-shrink-0 flex flex-col transition-colors border-r ${tema.border}`}
+        initial={false}
+        animate={{ x: menuAberto || (typeof window !== 'undefined' && window.innerWidth >= 768) ? 0 : "-100%" }}
+        transition={{ type: "spring", bounce: 0, duration: 0.4 }}
+      >
+        <div className="p-4">
           <button 
             onClick={iniciarNovaConversa} 
-            className="w-full flex items-center justify-between gap-2 px-3 py-2.5 bg-transparent hover:bg-[#212121] rounded-lg transition-colors text-sm font-medium text-gray-200 border border-gray-700/50"
+            className={`w-full flex items-center justify-between gap-2 px-4 py-3 rounded-xl transition-all font-semibold border ${tema.border} ${tema.button}`}
           >
             <div className="flex items-center gap-2">
-              <div className="bg-white text-black rounded-full p-1">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="12" y1="5" x2="12" y2="19"></line>
-                  <line x1="5" y1="12" x2="19" y2="12"></line>
-                </svg>
-              </div>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
               Nova Conversa
             </div>
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-3 pb-3 flex flex-col gap-1 mt-2">
-          <h3 className="text-xs font-semibold text-gray-500 mb-2 px-2">Histórico</h3>
+        <div className="flex-1 overflow-y-auto px-3 pb-3 flex flex-col gap-1 mt-2 custom-scrollbar">
+          <h3 className="text-xs font-semibold text-gray-500 mb-2 px-2 uppercase tracking-wider">Histórico</h3>
           {sessoes.map((sessao) => (
-            <div key={sessao.id} className={`group flex items-center justify-between w-full px-3 py-2.5 rounded-lg text-sm transition-colors ${sessaoId === sessao.id ? "bg-[#212121] text-white" : "text-gray-300 hover:bg-[#212121]"}`}>
+            <motion.div 
+              initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
+              key={sessao.id} 
+              className={`group flex items-center justify-between w-full px-3 py-2.5 rounded-lg text-sm transition-all cursor-pointer ${sessaoId === sessao.id ? "bg-white/10 text-white font-medium" : "text-gray-400 hover:bg-white/5 hover:text-gray-200"}`}
+            >
               <button onClick={() => selecionarSessao(sessao.id)} className="flex-1 text-left truncate pr-2">
                 {sessao.titulo}
               </button>
@@ -613,14 +645,14 @@ export default function Home() {
                   <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
                 </svg>
               </button>
-            </div>
+            </motion.div>
           ))}
         </div>
 
-        <div className="p-3 border-t border-gray-700/50">
-          <div className="flex items-center justify-between px-3 py-2 text-sm text-gray-400">
-            <span className="truncate pr-2">{usuarioLogado}</span>
-            <button onClick={fazerLogout} className="hover:text-white transition-colors" title="Sair">
+        <div className={`p-4 border-t ${tema.border} bg-black/20`}>
+          <div className="flex items-center justify-between text-sm text-gray-400">
+            <span className="truncate pr-2 font-medium">{usuarioLogado}</span>
+            <button onClick={fazerLogout} className="p-2 hover:bg-red-500/20 hover:text-red-400 rounded-lg transition-colors" title="Sair">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
                 <polyline points="16 17 21 12 16 7"></polyline>
@@ -629,27 +661,31 @@ export default function Home() {
             </button>
           </div>
         </div>
-      </aside>
+      </motion.aside>
 
       <main className="flex-1 flex flex-col min-w-0 h-full relative">
-        <header className="flex items-center justify-between p-3 border-b border-gray-700/50 bg-[#212121]">
-          <div className="flex items-center gap-2">
-            <button onClick={() => setMenuAberto(true)} className="md:hidden p-2 text-gray-300 hover:text-white">
+        {/* Cabecalho Animado */}
+        <header className={`flex items-center justify-between p-4 border-b ${tema.border} bg-black/20 backdrop-blur-md`}>
+          <div className="flex items-center gap-3">
+            <button onClick={() => setMenuAberto(true)} className="md:hidden p-2 text-gray-400 hover:text-white bg-white/5 rounded-lg">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="3" y1="12" x2="21" y2="12"></line>
                 <line x1="3" y1="6" x2="21" y2="6"></line>
                 <line x1="3" y1="18" x2="21" y2="18"></line>
               </svg>
             </button>
-            <h1 className="hidden md:block text-lg font-semibold text-gray-200">Chat IA</h1>
+            <h1 className="hidden md:flex text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-100 to-gray-500 items-center gap-2">
+              <span className={`w-2 h-2 rounded-full ${tema.button.split(' ')[0]} animate-pulse`}></span>
+              Chat IA
+            </h1>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3">
+          <motion.div whileHover={{ scale: 1.02 }} className="flex items-center">
             <select
               value={persona}
               onChange={(e) => setPersona(e.target.value)}
-              className="bg-[#2f2f2f] text-gray-300 text-xs sm:text-sm rounded-lg border border-gray-600 focus:outline-none focus:ring-1 focus:ring-gray-400 px-2 py-1.5 cursor-pointer shadow-sm transition-colors"
-              title="Escolha a Personalidade da IA"
+              className={`bg-black/40 ${tema.text} text-sm font-medium rounded-xl border ${tema.border} focus:outline-none focus:ring-2 focus:ring-opacity-50 px-3 py-2 cursor-pointer shadow-sm transition-all appearance-none pr-8 relative`}
+              style={{ backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.5rem center', backgroundSize: '1.2em 1.2em' }}
             >
               <option value="Padrão">🤖 Padrão</option>
               <option value="Programador">💻 Programador</option>
@@ -657,213 +693,185 @@ export default function Home() {
               <option value="Copywriter">✍️ Copywriter</option>
               <option value="Mestre Yoda">👽 Mestre Yoda</option>
             </select>
-          </div>
+          </motion.div>
         </header>
 
-        <div className="flex-1 overflow-y-auto w-full flex flex-col items-center">
+        {/* Área de Mensagens */}
+        <div className="flex-1 overflow-y-auto w-full flex flex-col items-center scroll-smooth">
           {mensagens.length === 0 ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-center px-4 max-w-3xl mx-auto w-full">
-              <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center mb-6 shadow-lg">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+              className="flex-1 flex flex-col items-center justify-center text-center px-4 max-w-3xl mx-auto w-full"
+            >
+              <div className={`w-20 h-20 rounded-2xl flex items-center justify-center mb-8 shadow-2xl ${tema.button} ${tema.glow} transform rotate-3`}>
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="-rotate-3">
                   <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
                 </svg>
               </div>
-              <h2 className="text-2xl font-semibold text-gray-200 mb-8">Como posso ajudar hoje?</h2>
+              <h2 className="text-3xl font-bold mb-10 tracking-tight">Como posso ajudar hoje?</h2>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full max-w-2xl px-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-2xl px-2">
                 {sugestoes.map((sugestao, i) => (
-                  <button
+                  <motion.button
+                    whileHover={{ scale: 1.02, y: -2 }}
+                    whileTap={{ scale: 0.98 }}
                     key={i}
                     onClick={() => enviarMensagem(undefined, sugestao.texto)}
-                    className="flex items-start gap-3 p-4 bg-[#2f2f2f] hover:bg-[#3a3a3a] border border-gray-700 hover:border-gray-500 rounded-xl transition-all text-left group"
+                    className={`flex items-start gap-4 p-5 bg-black/20 hover:bg-black/40 border ${tema.border} rounded-2xl transition-all text-left group shadow-lg`}
                   >
-                    <span className="text-xl">{sugestao.icone}</span>
-                    <span className="text-sm text-gray-300 group-hover:text-white mt-0.5 leading-relaxed">
+                    <span className="text-2xl">{sugestao.icone}</span>
+                    <span className="text-sm text-gray-300 group-hover:text-white mt-0.5 leading-relaxed font-medium">
                       {sugestao.texto}
                     </span>
-                  </button>
+                  </motion.button>
                 ))}
               </div>
-            </div>
+            </motion.div>
           ) : (
-            <div className="w-full max-w-3xl flex flex-col gap-6 px-4 py-8">
-              {mensagens.map((msg, index) => (
-                <div key={index} className={`flex w-full ${msg.autor === "usuario" ? "justify-end" : "justify-start"}`}>
-                  {msg.autor === "ia" && (
-                    <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center mr-4 flex-shrink-0 mt-1">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
-                      </svg>
-                    </div>
-                  )}
-                  <div className={`max-w-[85%] md:max-w-[75%] px-5 py-3 ${msg.autor === "usuario" ? "bg-[#2f2f2f] text-gray-100 rounded-3xl group" : "flex flex-col bg-transparent text-gray-100 px-0 rounded-none w-full"}`}>
-                    {msg.autor === "ia" ? (
-                      <>
-                        <div className="prose prose-invert max-w-none text-gray-200 leading-relaxed">
-                          <ReactMarkdown>
-                            {msg.texto.replace(/!\[(.*?)\]\((.*?)\)/g, (match, alt, url) => `![${alt}](${url.replace(/ /g, '%20')})`)}
-                          </ReactMarkdown>
-                        </div>
-                        <div className="flex justify-start mt-3 gap-4">
-                          <button onClick={() => copiarTexto(msg.texto, index)} className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors" title="Copiar resposta">
-                            {copiadoIndex === index ? (
-                              <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-500"><polyline points="20 6 9 17 4 12"></polyline></svg> Copiado</>
-                            ) : (
-                              <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> Copiar</>
-                            )}
-                          </button>
-                          <button onClick={() => alternarVoz(msg.texto, index)} className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors" title="Ouvir resposta">
-                            {falandoIndex === index ? (
-                              <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg> Parar</>
-                            ) : (
-                              <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg> Ouvir</>
-                            )}
-                          </button>
-                          
-                          {index === mensagens.length - 1 && !carregando && (
-                            <button onClick={regerarUltimaResposta} className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors" title="Regerar resposta">
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <polyline points="1 4 1 10 7 10"></polyline>
-                                <polyline points="23 20 23 14 17 14"></polyline>
-                                <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path>
-                              </svg> 
-                              Regerar
-                            </button>
-                          )}
-                        </div>
-                      </>
-                    ) : (
-                      <div className="flex flex-col gap-1 items-end w-full">
-                        {editandoIndex === index ? (
-                          <div className="w-full flex flex-col gap-3 min-w-[200px] sm:min-w-[300px]">
-                            <textarea
-                              value={textoEdicao}
-                              onChange={(e) => setTextoEdicao(e.target.value)}
-                              className="w-full bg-[#1e1e1e] text-gray-100 p-3 rounded-xl border border-gray-600 focus:outline-none focus:ring-1 focus:ring-gray-400 resize-y min-h-[80px] text-sm"
-                            />
-                            <div className="flex justify-end gap-2">
-                              <button onClick={cancelarEdicao} className="px-3 py-1.5 text-xs font-medium text-gray-300 hover:text-white bg-[#3a3a3a] rounded-lg transition-colors">Cancelar</button>
-                              <button onClick={() => regerarComEdicao(index)} disabled={!textoEdicao.trim() || carregando} className="px-3 py-1.5 text-xs font-medium text-black bg-white hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50">Salvar e Enviar</button>
-                            </div>
-                          </div>
-                        ) : (
-                          <>
-                            {msg.imagem && (
-                              <img src={msg.imagem} alt="Anexo enviado" className="max-w-[200px] sm:max-w-[250px] rounded-lg object-contain border border-gray-600 mb-1" />
-                            )}
-                            <p className="whitespace-pre-wrap leading-relaxed">{msg.texto}</p>
-                            {!carregando && (
-                              <button
-                                onClick={() => iniciarEdicao(index, msg.texto)}
-                                className="opacity-0 group-hover:opacity-100 flex items-center gap-1.5 text-[11px] text-gray-400 hover:text-white mt-1 transition-all duration-200"
-                                title="Editar mensagem"
-                              >
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                                Editar
-                              </button>
-                            )}
-                          </>
-                        )}
+            <div className="w-full max-w-4xl flex flex-col gap-6 px-4 py-8">
+              <AnimatePresence initial={false}>
+                {mensagens.map((msg, index) => (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 15, scale: 0.98 }} 
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    layout
+                    key={index} 
+                    className={`flex w-full ${msg.autor === "usuario" ? "justify-end" : "justify-start"}`}
+                  >
+                    {msg.autor === "ia" && (
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-4 flex-shrink-0 mt-1 shadow-lg ${tema.button}`}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+                        </svg>
                       </div>
                     )}
-                  </div>
-                </div>
-              ))}
+                    <div className={`max-w-[85%] md:max-w-[75%] px-6 py-4 ${msg.autor === "usuario" ? `bg-black/30 border ${tema.border} rounded-3xl rounded-tr-sm shadow-md` : "flex flex-col bg-transparent px-0 rounded-none w-full"}`}>
+                      {msg.autor === "ia" ? (
+                        <>
+                          <div className="prose prose-invert prose-p:leading-relaxed prose-pre:bg-[#161b22] prose-pre:border prose-pre:border-gray-800 max-w-none">
+                            <ReactMarkdown>
+                              {msg.texto.replace(/!\[(.*?)\]\((.*?)\)/g, (match, alt, url) => `![${alt}](${url.replace(/ /g, '%20')})`)}
+                            </ReactMarkdown>
+                          </div>
+                          <div className="flex justify-start mt-4 gap-3">
+                            <button onClick={() => copiarTexto(msg.texto, index)} className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-300 transition-colors bg-white/5 px-2 py-1.5 rounded-lg" title="Copiar resposta">
+                              {copiadoIndex === index ? (
+                                <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-500"><polyline points="20 6 9 17 4 12"></polyline></svg> Copiado</>
+                              ) : (
+                                <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> Copiar</>
+                              )}
+                            </button>
+                            <button onClick={() => alternarVoz(msg.texto, index)} className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-300 transition-colors bg-white/5 px-2 py-1.5 rounded-lg" title="Ouvir resposta">
+                              {falandoIndex === index ? (
+                                <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg> Parar</>
+                              ) : (
+                                <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg> Ouvir</>
+                              )}
+                            </button>
+                            
+                            {index === mensagens.length - 1 && !carregando && (
+                              <button onClick={regerarUltimaResposta} className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-300 transition-colors bg-white/5 px-2 py-1.5 rounded-lg" title="Regerar resposta">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <polyline points="1 4 1 10 7 10"></polyline>
+                                  <polyline points="23 20 23 14 17 14"></polyline>
+                                  <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path>
+                                </svg> 
+                                Regerar
+                              </button>
+                            )}
+                          </div>
+                        </>
+                      ) : (
+                        <div className="flex flex-col gap-2 items-end w-full group">
+                          {editandoIndex === index ? (
+                            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="w-full flex flex-col gap-3 min-w-[200px] sm:min-w-[300px]">
+                              <textarea
+                                value={textoEdicao}
+                                onChange={(e) => setTextoEdicao(e.target.value)}
+                                className={`w-full bg-black/40 text-white p-3 rounded-xl border ${tema.border} focus:outline-none focus:ring-1 focus:ring-gray-400 resize-y min-h-[80px] text-sm`}
+                              />
+                              <div className="flex justify-end gap-2">
+                                <button onClick={cancelarEdicao} className="px-4 py-2 text-xs font-bold text-gray-300 hover:text-white bg-white/10 rounded-xl transition-colors">Cancelar</button>
+                                <button onClick={() => regerarComEdicao(index)} disabled={!textoEdicao.trim() || carregando} className={`px-4 py-2 text-xs font-bold rounded-xl transition-all disabled:opacity-50 ${tema.button}`}>Salvar e Enviar</button>
+                              </div>
+                            </motion.div>
+                          ) : (
+                            <>
+                              {msg.imagem && (
+                                <img src={msg.imagem} alt="Anexo enviado" className={`max-w-[200px] sm:max-w-[280px] rounded-xl object-contain border ${tema.border} mb-2 shadow-md`} />
+                              )}
+                              <p className="whitespace-pre-wrap leading-relaxed text-[15px]">{msg.texto}</p>
+                              {!carregando && (
+                                <button
+                                  onClick={() => iniciarEdicao(index, msg.texto)}
+                                  className="opacity-0 group-hover:opacity-100 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-gray-400 hover:text-white mt-1 transition-all duration-200 bg-black/20 px-2 py-1 rounded-md"
+                                  title="Editar mensagem"
+                                >
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                  Editar
+                                </button>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+              
+              {/* Animacao de Carregamento (Dots) */}
               {carregando && (
-                <div className="flex w-full justify-start">
-                  <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center mr-4 flex-shrink-0 mt-1">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex w-full justify-start">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-4 flex-shrink-0 mt-1 shadow-lg ${tema.button}`}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
                     </svg>
                   </div>
-                  <div className="flex items-center gap-1.5 text-gray-400 py-3">
-                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-pulse"></span>
-                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-pulse delay-75"></span>
-                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-pulse delay-150"></span>
+                  <div className="flex items-center gap-2 text-gray-400 py-3">
+                    <motion.span animate={{ y: [0, -5, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0 }} className={`w-2 h-2 rounded-full ${tema.button.split(' ')[0]}`}></motion.span>
+                    <motion.span animate={{ y: [0, -5, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0.2 }} className={`w-2 h-2 rounded-full ${tema.button.split(' ')[0]}`}></motion.span>
+                    <motion.span animate={{ y: [0, -5, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0.4 }} className={`w-2 h-2 rounded-full ${tema.button.split(' ')[0]}`}></motion.span>
                   </div>
-                </div>
+                </motion.div>
               )}
               <div ref={fimDasMensagensRef} />
             </div>
           )}
         </div>
 
-        <div className="w-full flex flex-col items-center bg-[#212121] px-4 pb-6 pt-2">
-          <div className="w-full max-w-3xl relative">
+        {/* Input Area Animada */}
+        <div className={`w-full flex flex-col items-center bg-black/20 backdrop-blur-md px-4 pb-6 pt-3 border-t ${tema.border}`}>
+          <div className="w-full max-w-4xl relative">
             
-            {imagemPreview && (
-              <div className="absolute bottom-[110%] left-0 bg-[#2f2f2f] p-2 rounded-xl border border-gray-700 shadow-lg relative inline-block mb-3">
-                <button 
-                  onClick={limparImagem}
-                  className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 transition-colors text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold"
-                  title="Remover imagem"
-                >
-                  ✕
-                </button>
-                <img src={imagemPreview} alt="Anexo" className="h-20 w-auto rounded-lg object-cover" />
-              </div>
-            )}
+            <AnimatePresence>
+              {imagemPreview && (
+                <motion.div initial={{ opacity: 0, scale: 0.8, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.8, y: 20 }} className={`absolute bottom-[110%] left-0 bg-black/60 backdrop-blur-md p-2 rounded-2xl border ${tema.border} shadow-2xl inline-block mb-3`}>
+                  <button onClick={limparImagem} className="absolute -top-3 -right-3 bg-red-500 hover:bg-red-600 shadow-md transition-colors text-white rounded-full w-7 h-7 flex items-center justify-center text-xs font-bold" title="Remover imagem">✕</button>
+                  <img src={imagemPreview} alt="Anexo" className="h-24 w-auto rounded-xl object-cover" />
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-            <form onSubmit={enviarMensagem} className="relative flex items-center w-full gap-2 bg-[#2f2f2f] rounded-3xl border border-gray-700 shadow-sm px-2">
+            <form onSubmit={enviarMensagem} className={`relative flex items-center w-full gap-2 bg-black/40 rounded-full border ${tema.border} shadow-lg px-2 transition-all focus-within:ring-1 focus-within:ring-white/20`}>
               
-              <input 
-                type="file" 
-                accept="image/*" 
-                className="hidden" 
-                ref={fileInputRef} 
-                onChange={handleSelecionarImagem} 
-              />
+              <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleSelecionarImagem} />
               
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="p-2.5 rounded-full transition-colors flex-shrink-0 flex items-center justify-center h-10 w-10 bg-transparent text-gray-400 hover:text-gray-200"
-                title="Anexar imagem"
-                disabled={carregando}
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
-                </svg>
+              <button type="button" onClick={() => fileInputRef.current?.click()} className="p-3 rounded-full transition-colors flex-shrink-0 flex items-center justify-center h-11 w-11 bg-transparent text-gray-400 hover:text-white" title="Anexar imagem" disabled={carregando}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
               </button>
 
-              <button
-                type="button"
-                onClick={alternarMicrofone}
-                className={`p-2.5 rounded-full transition-colors flex-shrink-0 flex items-center justify-center h-10 w-10 ${ouvindo ? "bg-red-500/20 text-red-500 animate-pulse" : "bg-transparent text-gray-400 hover:text-gray-200"}`}
-                title="Ditar mensagem"
-                disabled={carregando}
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path>
-                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-                  <line x1="12" y1="19" x2="12" y2="22"></line>
-                </svg>
+              <button type="button" onClick={alternarMicrofone} className={`p-3 rounded-full transition-colors flex-shrink-0 flex items-center justify-center h-11 w-11 ${ouvindo ? "bg-red-500/20 text-red-500 animate-pulse" : "bg-transparent text-gray-400 hover:text-white"}`} title="Ditar mensagem" disabled={carregando}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg>
               </button>
               
-              <input
-                type="text"
-                className="flex-1 bg-transparent text-gray-100 py-3.5 focus:outline-none"
-                placeholder={ouvindo ? "A ouvir..." : imagemPreview ? "Faça uma pergunta sobre a imagem..." : "Envie uma mensagem..."}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                disabled={carregando}
-              />
+              <input type="text" className="flex-1 bg-transparent text-gray-100 py-4 focus:outline-none text-[15px]" placeholder={ouvindo ? "A ouvir..." : imagemPreview ? "Faça uma pergunta sobre a imagem..." : "Envie uma mensagem..."} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown} disabled={carregando} />
               
-              <button
-                type="submit"
-                className="bg-white text-black rounded-full hover:bg-gray-200 transition-colors disabled:bg-[#424242] disabled:text-gray-500 flex-shrink-0 flex items-center justify-center h-9 w-9 mr-1"
-                disabled={carregando || (!input.trim() && !imagemBase64)}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="22" y1="2" x2="11" y2="13"></line>
-                  <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                </svg>
-              </button>
+              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} type="submit" className={`rounded-full flex-shrink-0 flex items-center justify-center h-10 w-10 mr-1 shadow-md disabled:bg-[#424242] disabled:text-gray-500 ${tema.button}`} disabled={carregando || (!input.trim() && !imagemBase64)}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+              </motion.button>
             </form>
-            <p className="text-center text-xs text-gray-500 mt-3">
-              A IA pode cometer erros. Considere verificar as informações importantes.
-            </p>
+            <p className="text-center text-xs text-gray-500 mt-3 font-medium">A IA pode cometer erros. Considere verificar as informações importantes.</p>
           </div>
         </div>
       </main>
