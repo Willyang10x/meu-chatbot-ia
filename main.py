@@ -40,13 +40,18 @@ class MensagemUsuario(BaseModel):
     usuario_email: str = "anonimo"
     imagem: Optional[str] = None
     persona: str = "Padrão"
+    instrucoes_customizadas: Optional[str] = None
 
 sessoes_chat = {}
 
-def obter_instrucoes_sistema(data_hoje, persona):
+# ATUALIZADO: Agora recebe as instrucoes_customizadas
+def obter_instrucoes_sistema(data_hoje, persona, instrucoes_customizadas=None):
     base_prompt = f"Hoje é dia {data_hoje}. "
     
-    if persona == "Programador":
+    # Se houver instruções customizadas (Criador de Personas), usa-as com prioridade!
+    if instrucoes_customizadas:
+        base_prompt += instrucoes_customizadas
+    elif persona == "Programador":
         base_prompt += "Você é um Programador Sênior rabugento, mas brilhante. Responda de forma extremamente direta, focada em código limpo, e sempre explique o porquê técnico da sua solução."
     elif persona == "Professor de Inglês":
         base_prompt += "Você é um Professor de Inglês britânico muito educado. A sua primeira tarefa é sempre analisar a gramática do usuário (se ele falar em inglês) ou traduzir termos (se ele falar em português) antes de responder à pergunta."
@@ -78,7 +83,8 @@ def conversar_com_ia(mensagem: MensagemUsuario):
         email = mensagem.usuario_email
         data_hoje = datetime.now().strftime("%d/%m/%Y")
         
-        instrucoes = obter_instrucoes_sistema(data_hoje, mensagem.persona)
+        # ATUALIZADO: Passa as instruções customizadas para a função
+        instrucoes = obter_instrucoes_sistema(data_hoje, mensagem.persona, mensagem.instrucoes_customizadas)
         
         if sessao not in sessoes_chat or sessoes_chat[sessao].get("persona") != mensagem.persona:
             resposta_banco = supabase.table("mensagens_chat").select("*").eq("sessao_id", sessao).order("criado_em").execute()

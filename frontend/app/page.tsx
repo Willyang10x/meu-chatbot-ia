@@ -21,13 +21,24 @@ type Sessao = {
   titulo: string;
 };
 
-// --- CONFIGURAÇÃO DOS TEMAS DAS PERSONAS ---
+type PersonaCustomizada = {
+  id: string;
+  nome: string;
+  instrucoes: string;
+  tema: string;
+};
+
 const temasPersona: Record<string, { bg: string; button: string; border: string; text: string; glow: string }> = {
   "Padrão": { bg: "bg-[#212121]", button: "bg-white text-black hover:bg-gray-200", border: "border-gray-700", text: "text-gray-100", glow: "shadow-[0_0_15px_rgba(255,255,255,0.05)]" },
   "Programador": { bg: "bg-[#0d1117]", button: "bg-[#2f81f7] text-white hover:bg-[#1f6feb]", border: "border-[#30363d]", text: "text-[#c9d1d9]", glow: "shadow-[0_0_15px_rgba(47,129,247,0.15)]" },
   "Professor de Inglês": { bg: "bg-[#2a1b1b]", button: "bg-[#da3633] text-white hover:bg-[#b32b29]", border: "border-[#5c3a3a]", text: "text-[#f2eaea]", glow: "shadow-[0_0_15px_rgba(218,54,51,0.15)]" },
   "Copywriter": { bg: "bg-[#2b2210]", button: "bg-[#e3b341] text-black hover:bg-[#c99f38]", border: "border-[#665329]", text: "text-[#f5ecd8]", glow: "shadow-[0_0_15px_rgba(227,179,65,0.15)]" },
-  "Mestre Yoda": { bg: "bg-[#142416]", button: "bg-[#4ade80] text-black hover:bg-[#22c55e]", border: "border-[#2c5232]", text: "text-[#dcfce7]", glow: "shadow-[0_0_15px_rgba(74,222,128,0.15)]" }
+  "Mestre Yoda": { bg: "bg-[#142416]", button: "bg-[#4ade80] text-black hover:bg-[#22c55e]", border: "border-[#2c5232]", text: "text-[#dcfce7]", glow: "shadow-[0_0_15px_rgba(74,222,128,0.15)]" },
+  "Roxo": { bg: "bg-[#1a1423]", button: "bg-[#a855f7] text-white hover:bg-[#9333ea]", border: "border-[#3b284e]", text: "text-[#e9d5ff]", glow: "shadow-[0_0_15px_rgba(168,85,247,0.15)]" },
+  "Azul": { bg: "bg-[#0d1117]", button: "bg-[#2f81f7] text-white hover:bg-[#1f6feb]", border: "border-[#30363d]", text: "text-[#c9d1d9]", glow: "shadow-[0_0_15px_rgba(47,129,247,0.15)]" },
+  "Verde": { bg: "bg-[#142416]", button: "bg-[#4ade80] text-black hover:bg-[#22c55e]", border: "border-[#2c5232]", text: "text-[#dcfce7]", glow: "shadow-[0_0_15px_rgba(74,222,128,0.15)]" },
+  "Vermelho": { bg: "bg-[#2a1b1b]", button: "bg-[#da3633] text-white hover:bg-[#b32b29]", border: "border-[#5c3a3a]", text: "text-[#f2eaea]", glow: "shadow-[0_0_15px_rgba(218,54,51,0.15)]" },
+  "Amarelo": { bg: "bg-[#2b2210]", button: "bg-[#e3b341] text-black hover:bg-[#c99f38]", border: "border-[#665329]", text: "text-[#f5ecd8]", glow: "shadow-[0_0_15px_rgba(227,179,65,0.15)]" }
 };
 
 export default function Home() {
@@ -45,9 +56,11 @@ export default function Home() {
   const [carregando, setCarregando] = useState(false);
   const [sessaoId, setSessaoId] = useState<string>("");
   const [sessoes, setSessoes] = useState<Sessao[]>([]);
-  const [menuAberto, setMenuAberto] = useState(false);
-  const [copiadoIndex, setCopiadoIndex] = useState<number | null>(null);
   
+  const [sidebarAberta, setSidebarAberta] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+  
+  const [copiadoIndex, setCopiadoIndex] = useState<number | null>(null);
   const [ouvindo, setOuvindo] = useState(false);
   const [falandoIndex, setFalandoIndex] = useState<number | null>(null);
   
@@ -55,6 +68,12 @@ export default function Home() {
   const [imagemPreview, setImagemPreview] = useState<string | null>(null);
   
   const [persona, setPersona] = useState<string>("Padrão");
+
+  const [personasCustomizadas, setPersonasCustomizadas] = useState<PersonaCustomizada[]>([]);
+  const [modalPersona, setModalPersona] = useState(false);
+  const [novaPersonaNome, setNovaPersonaNome] = useState("");
+  const [novaPersonaInstrucoes, setNovaPersonaInstrucoes] = useState("");
+  const [novaPersonaTema, setNovaPersonaTema] = useState("Azul");
   
   const [editandoIndex, setEditandoIndex] = useState<number | null>(null);
   const [textoEdicao, setTextoEdicao] = useState("");
@@ -63,8 +82,11 @@ export default function Home() {
   const reconhecimentoRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // O tema atual selecionado
-  const tema = temasPersona[persona] || temasPersona["Padrão"];
+  let tema = temasPersona[persona];
+  if (!tema) {
+    const pc = personasCustomizadas.find(p => p.nome === persona);
+    tema = pc && temasPersona[pc.tema] ? temasPersona[pc.tema] : temasPersona["Padrão"];
+  }
 
   const sugestoes = [
     { icone: "⚛️", texto: "Explica a diferença entre useState e useEffect no React" },
@@ -76,6 +98,19 @@ export default function Home() {
   const rolarParaOFinal = () => {
     fimDasMensagensRef.current?.scrollIntoView({ behavior: "smooth" });
   };
+
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (mobile) setSidebarAberta(false);
+      else setSidebarAberta(true);
+    };
+    
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -183,6 +218,40 @@ export default function Home() {
         setSessoes(dados.sessoes);
       }
     } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const carregarPersonas = async (email: string) => {
+    try {
+      const { data, error } = await supabase.from('personas_customizadas').select('*').eq('usuario_email', email);
+      if (error) throw error;
+      setPersonasCustomizadas(data || []);
+    } catch (error) {
+      console.error("Erro ao carregar personas:", error);
+    }
+  };
+
+  const criarNovaPersona = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!novaPersonaNome.trim() || !novaPersonaInstrucoes.trim()) return;
+    try {
+      const { data, error } = await supabase.from('personas_customizadas').insert([{
+        usuario_email: usuarioLogado,
+        nome: novaPersonaNome,
+        instrucoes: novaPersonaInstrucoes,
+        tema: novaPersonaTema
+      }]).select();
+      if (error) throw error;
+      
+      setPersonasCustomizadas([...personasCustomizadas, data[0]]);
+      setPersona(data[0].nome);
+      setModalPersona(false);
+      setNovaPersonaNome(""); 
+      setNovaPersonaInstrucoes(""); 
+      setNovaPersonaTema("Azul");
+    } catch (error) {
+      alert("Erro ao criar persona.");
       console.error(error);
     }
   };
@@ -328,6 +397,7 @@ export default function Home() {
     setSessaoId(idSalvo);
     carregarHistorico(idSalvo);
     carregarSessoes(usuarioLogado);
+    carregarPersonas(usuarioLogado);
   }, [usuarioLogado]);
 
   useEffect(() => {
@@ -340,7 +410,7 @@ export default function Home() {
     setSessaoId(novoId);
     setMensagens([]);
     limparImagem();
-    if (window.innerWidth < 768) setMenuAberto(false);
+    if (isMobile) setSidebarAberta(false);
   };
 
   const selecionarSessao = (id: string) => {
@@ -348,7 +418,7 @@ export default function Home() {
     localStorage.setItem("chatbot_sessao_id", id);
     carregarHistorico(id);
     limparImagem();
-    if (window.innerWidth < 768) setMenuAberto(false);
+    if (isMobile) setSidebarAberta(false);
   };
 
   const enviarMensagem = async (e?: React.FormEvent, textoDireto?: string) => {
@@ -390,7 +460,8 @@ export default function Home() {
           sessao_id: sessaoId,
           usuario_email: usuarioLogado,
           imagem: imagemEnviada,
-          persona: persona
+          persona: persona,
+          instrucoes_customizadas: personasCustomizadas.find(p => p.nome === persona)?.instrucoes
         }),
       });
 
@@ -430,7 +501,8 @@ export default function Home() {
           sessao_id: sessaoId,
           usuario_email: usuarioLogado,
           imagem: imagemEnviada,
-          persona: persona
+          persona: persona,
+          instrucoes_customizadas: personasCustomizadas.find(p => p.nome === persona)?.instrucoes
         }),
       });
 
@@ -477,7 +549,8 @@ export default function Home() {
           sessao_id: sessaoId,
           usuario_email: usuarioLogado,
           imagem: imagemEnviada,
-          persona: persona
+          persona: persona,
+          instrucoes_customizadas: personasCustomizadas.find(p => p.nome === persona)?.instrucoes
         }),
       });
 
@@ -499,7 +572,6 @@ export default function Home() {
     }
   };
 
-  // --- TELA DE LOGIN ---
   if (!usuarioLogado) {
     return (
       <div className={`flex flex-col h-screen ${tema.bg} ${tema.text} font-sans items-center justify-center p-4 transition-colors duration-500`}>
@@ -590,114 +662,174 @@ export default function Home() {
     );
   }
 
-  // --- TELA PRINCIPAL (CHAT) ---
   return (
     <div className={`flex h-screen ${tema.bg} ${tema.text} font-sans overflow-hidden transition-colors duration-500`}>
       
-      {/* Menu Overlay Mobile Animado */}
       <AnimatePresence>
-        {menuAberto && (
+        {modalPersona && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="bg-[#1e1e1e] w-full max-w-lg rounded-2xl border border-gray-700 shadow-2xl overflow-hidden">
+              <div className="p-5 border-b border-gray-700 flex justify-between items-center bg-black/20">
+                <h3 className="text-xl font-bold text-white flex items-center gap-2"><span className="text-2xl">🎭</span> Nova Persona</h3>
+                <button onClick={() => setModalPersona(false)} className="text-gray-400 hover:text-white">✕</button>
+              </div>
+              <form onSubmit={criarNovaPersona} className="p-6 flex flex-col gap-5">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Nome da Persona</label>
+                  <input required value={novaPersonaNome} onChange={e => setNovaPersonaNome(e.target.value)} placeholder="Ex: Treinador de Valorant" className="w-full bg-black/40 text-white px-4 py-3 rounded-xl border border-gray-700 outline-none focus:border-gray-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Como a IA deve agir? (Instruções)</label>
+                  <textarea required value={novaPersonaInstrucoes} onChange={e => setNovaPersonaInstrucoes(e.target.value)} placeholder="Ex: Você é um jogador Radiante. Analise as jogadas e dê dicas agressivas de mira." className="w-full bg-black/40 text-white px-4 py-3 rounded-xl border border-gray-700 outline-none focus:border-gray-500 min-h-[100px]" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Cor do Tema</label>
+                  <div className="flex gap-3">
+                    {["Azul", "Roxo", "Verde", "Vermelho", "Amarelo"].map(cor => (
+                      <button key={cor} type="button" onClick={() => setNovaPersonaTema(cor)} className={`w-10 h-10 rounded-full border-2 transition-all ${novaPersonaTema === cor ? 'border-white scale-110 shadow-lg' : 'border-transparent opacity-60'} ${temasPersona[cor].button.split(' ')[0]}`} title={cor} />
+                    ))}
+                  </div>
+                </div>
+                <button type="submit" className="w-full mt-2 bg-white text-black font-bold py-3 rounded-xl hover:bg-gray-200 transition-colors">Salvar Persona</button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {sidebarAberta && isMobile && (
           <motion.div 
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden" 
-            onClick={() => setMenuAberto(false)}
+            onClick={() => setSidebarAberta(false)}
           />
         )}
       </AnimatePresence>
 
-      {/* Sidebar Animada */}
       <motion.aside 
-        className={`fixed md:relative z-50 h-full w-64 bg-black/40 backdrop-blur-md flex-shrink-0 flex flex-col transition-colors border-r ${tema.border}`}
+        className={`fixed md:relative z-50 h-full bg-black/40 backdrop-blur-md flex flex-col transition-colors border-r ${tema.border} overflow-hidden`}
         initial={false}
-        animate={{ x: menuAberto || (typeof window !== 'undefined' && window.innerWidth >= 768) ? 0 : "-100%" }}
+        animate={{ 
+          width: isMobile ? 256 : (sidebarAberta ? 256 : 0),
+          x: isMobile ? (sidebarAberta ? 0 : "-100%") : 0
+        }}
         transition={{ type: "spring", bounce: 0, duration: 0.4 }}
       >
-        <div className="p-4">
-          <button 
-            onClick={iniciarNovaConversa} 
-            className={`w-full flex items-center justify-between gap-2 px-4 py-3 rounded-xl transition-all font-semibold border ${tema.border} ${tema.button}`}
-          >
-            <div className="flex items-center gap-2">
+        <div className="w-64 h-full flex flex-col flex-shrink-0">
+          <div className="p-4 flex gap-2">
+            <button 
+              onClick={iniciarNovaConversa} 
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl transition-all font-semibold border ${tema.border} ${tema.button}`}
+            >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="12" y1="5" x2="12" y2="19"></line>
                 <line x1="5" y1="12" x2="19" y2="12"></line>
               </svg>
-              Nova Conversa
-            </div>
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto px-3 pb-3 flex flex-col gap-1 mt-2 custom-scrollbar">
-          <h3 className="text-xs font-semibold text-gray-500 mb-2 px-2 uppercase tracking-wider">Histórico</h3>
-          {sessoes.map((sessao) => (
-            <motion.div 
-              initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
-              key={sessao.id} 
-              className={`group flex items-center justify-between w-full px-3 py-2.5 rounded-lg text-sm transition-all cursor-pointer ${sessaoId === sessao.id ? "bg-white/10 text-white font-medium" : "text-gray-400 hover:bg-white/5 hover:text-gray-200"}`}
+              Nova
+            </button>
+            
+            <button 
+              onClick={() => setSidebarAberta(false)}
+              className={`flex-shrink-0 w-12 flex items-center justify-center rounded-xl transition-all border ${tema.border} hover:bg-white/10 text-gray-400 hover:text-white`}
+              title="Recolher Painel"
             >
-              <button onClick={() => selecionarSessao(sessao.id)} className="flex-1 text-left truncate pr-2">
-                {sessao.titulo}
-              </button>
-              <button onClick={(e) => apagarSessao(sessao.id, e)} className="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400 transition-all" title="Apagar conversa">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M3 6h18"></path>
-                  <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-                  <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
-                </svg>
-              </button>
-            </motion.div>
-          ))}
-        </div>
-
-        <div className={`p-4 border-t ${tema.border} bg-black/20`}>
-          <div className="flex items-center justify-between text-sm text-gray-400">
-            <span className="truncate pr-2 font-medium">{usuarioLogado}</span>
-            <button onClick={fazerLogout} className="p-2 hover:bg-red-500/20 hover:text-red-400 rounded-lg transition-colors" title="Sair">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                <polyline points="16 17 21 12 16 7"></polyline>
-                <line x1="21" y1="12" x2="9" y2="12"></line>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                {isMobile ? (
+                  <path d="M18 6L6 18M6 6l12 12" />
+                ) : (
+                  <path d="M15 18l-6-6 6-6" />
+                )}
               </svg>
             </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-3 pb-3 flex flex-col gap-1 mt-2 custom-scrollbar">
+            <h3 className="text-xs font-semibold text-gray-500 mb-2 px-2 uppercase tracking-wider">Histórico</h3>
+            {sessoes.map((sessao) => (
+              <motion.div 
+                initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
+                key={sessao.id} 
+                className={`group flex items-center justify-between w-full px-3 py-2.5 rounded-lg text-sm transition-all cursor-pointer ${sessaoId === sessao.id ? "bg-white/10 text-white font-medium" : "text-gray-400 hover:bg-white/5 hover:text-gray-200"}`}
+              >
+                <button onClick={() => selecionarSessao(sessao.id)} className="flex-1 text-left truncate pr-2">
+                  {sessao.titulo}
+                </button>
+                <button onClick={(e) => apagarSessao(sessao.id, e)} className="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400 transition-all" title="Apagar conversa">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 6h18"></path>
+                    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                  </svg>
+                </button>
+              </motion.div>
+            ))}
+          </div>
+
+          <div className={`p-4 border-t ${tema.border} bg-black/20`}>
+            <div className="flex items-center justify-between text-sm text-gray-400">
+              <span className="truncate pr-2 font-medium">{usuarioLogado}</span>
+              <button onClick={fazerLogout} className="p-2 hover:bg-red-500/20 hover:text-red-400 rounded-lg transition-colors" title="Sair">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                  <polyline points="16 17 21 12 16 7"></polyline>
+                  <line x1="21" y1="12" x2="9" y2="12"></line>
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       </motion.aside>
 
       <main className="flex-1 flex flex-col min-w-0 h-full relative">
-        {/* Cabecalho Animado */}
         <header className={`flex items-center justify-between p-4 border-b ${tema.border} bg-black/20 backdrop-blur-md`}>
           <div className="flex items-center gap-3">
-            <button onClick={() => setMenuAberto(true)} className="md:hidden p-2 text-gray-400 hover:text-white bg-white/5 rounded-lg">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="3" y1="12" x2="21" y2="12"></line>
-                <line x1="3" y1="6" x2="21" y2="6"></line>
-                <line x1="3" y1="18" x2="21" y2="18"></line>
-              </svg>
-            </button>
-            <h1 className="hidden md:flex text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-100 to-gray-500 items-center gap-2">
+            {!sidebarAberta && (
+              <motion.button 
+                initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                onClick={() => setSidebarAberta(true)} 
+                className={`p-2 text-gray-400 hover:text-white bg-white/5 border ${tema.border} rounded-lg`}
+                title="Abrir Histórico"
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="3" y1="12" x2="21" y2="12"></line>
+                  <line x1="3" y1="6" x2="21" y2="6"></line>
+                  <line x1="3" y1="18" x2="21" y2="18"></line>
+                </svg>
+              </motion.button>
+            )}
+            <h1 className="flex text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-100 to-gray-500 items-center gap-2">
               <span className={`w-2 h-2 rounded-full ${tema.button.split(' ')[0]} animate-pulse`}></span>
               Chat IA
             </h1>
           </div>
 
-          <motion.div whileHover={{ scale: 1.02 }} className="flex items-center">
+          <div className="flex items-center gap-2">
+            <button onClick={() => setModalPersona(true)} className={`text-xs font-bold px-3 py-2 rounded-xl transition-all border ${tema.border} hover:bg-white/10 text-gray-300 hidden sm:flex items-center gap-1.5`}><span className="text-base">+</span> Nova Persona</button>
             <select
               value={persona}
-              onChange={(e) => setPersona(e.target.value)}
-              className={`bg-black/40 ${tema.text} text-sm font-medium rounded-xl border ${tema.border} focus:outline-none focus:ring-2 focus:ring-opacity-50 px-3 py-2 cursor-pointer shadow-sm transition-all appearance-none pr-8 relative`}
+              onChange={(e) => { if(e.target.value === "NOVO") setModalPersona(true); else setPersona(e.target.value); }}
+              className={`bg-black/40 ${tema.text} text-sm font-medium rounded-xl border ${tema.border} focus:outline-none focus:ring-2 focus:ring-opacity-50 px-3 py-2 cursor-pointer shadow-sm transition-all appearance-none pr-8 relative max-w-[140px] sm:max-w-xs truncate`}
               style={{ backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.5rem center', backgroundSize: '1.2em 1.2em' }}
             >
-              <option value="Padrão">🤖 Padrão</option>
-              <option value="Programador">💻 Programador</option>
-              <option value="Professor de Inglês">🇬🇧 Prof. Inglês</option>
-              <option value="Copywriter">✍️ Copywriter</option>
-              <option value="Mestre Yoda">👽 Mestre Yoda</option>
+              <optgroup label="Padrões">
+                <option value="Padrão">🤖 Padrão</option>
+                <option value="Programador">💻 Programador</option>
+                <option value="Professor de Inglês">🇬🇧 Prof. Inglês</option>
+                <option value="Copywriter">✍️ Copywriter</option>
+                <option value="Mestre Yoda">👽 Mestre Yoda</option>
+              </optgroup>
+              {personasCustomizadas.length > 0 && (
+                <optgroup label="As Minhas Personas">
+                  {personasCustomizadas.map(p => <option key={p.id} value={p.nome}>🎭 {p.nome}</option>)}
+                </optgroup>
+              )}
+              <option value="NOVO" className="sm:hidden text-green-400 font-bold">+ Criar Persona</option>
             </select>
-          </motion.div>
+          </div>
         </header>
 
-        {/* Área de Mensagens */}
-        <div className="flex-1 overflow-y-auto w-full flex flex-col items-center scroll-smooth">
+        <div className="flex-1 overflow-y-auto w-full flex flex-col items-center scroll-smooth custom-scrollbar">
           {mensagens.length === 0 ? (
             <motion.div 
               initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
@@ -820,7 +952,6 @@ export default function Home() {
                 ))}
               </AnimatePresence>
               
-              {/* Animacao de Carregamento (Dots) */}
               {carregando && (
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex w-full justify-start">
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-4 flex-shrink-0 mt-1 shadow-lg ${tema.button}`}>
@@ -840,7 +971,6 @@ export default function Home() {
           )}
         </div>
 
-        {/* Input Area Animada */}
         <div className={`w-full flex flex-col items-center bg-black/20 backdrop-blur-md px-4 pb-6 pt-3 border-t ${tema.border}`}>
           <div className="w-full max-w-4xl relative">
             
