@@ -1,6 +1,8 @@
 import os
+import io
 import base64
 import traceback
+import PyPDF2
 from datetime import datetime
 from typing import Optional
 from fastapi import FastAPI
@@ -21,7 +23,7 @@ url: str = os.environ.get("SUPABASE_URL", "")
 key: str = os.environ.get("SUPABASE_KEY", "")
 supabase: Client = create_client(url, key)
 
-app = FastAPI(title="Chatbot IA API com Memória, Visão, Imagens e Personas")
+app = FastAPI(title="Chatbot IA API com Memória, Visão, Imagens, Personas e RAG (PDFs)")
 
 app.add_middleware(
     CORSMiddleware,
@@ -39,16 +41,15 @@ class MensagemUsuario(BaseModel):
     sessao_id: str = "usuario_padrao"
     usuario_email: str = "anonimo"
     imagem: Optional[str] = None
+    documento: Optional[str] = None # <-- NOVO: Recebe o PDF em Base64
     persona: str = "Padrão"
     instrucoes_customizadas: Optional[str] = None
 
 sessoes_chat = {}
 
-# ATUALIZADO: Agora recebe as instrucoes_customizadas
 def obter_instrucoes_sistema(data_hoje, persona, instrucoes_customizadas=None):
     base_prompt = f"Hoje é dia {data_hoje}. "
     
-    # Se houver instruções customizadas (Criador de Personas), usa-as com prioridade!
     if instrucoes_customizadas:
         base_prompt += instrucoes_customizadas
     elif persona == "Programador":
@@ -73,17 +74,15 @@ Aqui está a sua imagem:
 
 @app.get("/")
 def read_root():
-    return {"status": "ok", "mensagem": "Backend rodando com Personas ativas!"}
+    return {"status": "ok", "mensagem": "Backend rodando com Leitura de PDFs!"}
 
 @app.post("/chat")
 def conversar_com_ia(mensagem: MensagemUsuario):
-    # ESCUDO PROTETOR GLOBAL: Captura qualquer erro para não crashar o servidor
     try:
         sessao = mensagem.sessao_id
         email = mensagem.usuario_email
         data_hoje = datetime.now().strftime("%d/%m/%Y")
         
-        # ATUALIZADO: Passa as instruções customizadas para a função
         instrucoes = obter_instrucoes_sistema(data_hoje, mensagem.persona, mensagem.instrucoes_customizadas)
         
         if sessao not in sessoes_chat or sessoes_chat[sessao].get("persona") != mensagem.persona:
@@ -132,9 +131,26 @@ def conversar_com_ia(mensagem: MensagemUsuario):
             
         chat_atual = sessoes_chat[sessao]["chat"]
         
+        # --- LÓGICA DE LEITURA DE PDF (RAG) ---
+        texto_pdf_extraido = ""
+        if mensagem.documento:
+            try:
+                pdf_bytes = base64.b64decode(mensagem.documento)
+                leitor = PyPDF2.PdfReader(io.BytesIO(pdf_bytes))
+                texto_pdf_extraido = f"\n\n--- INÍCIO DO DOCUMENTO ANEXADO ---\n"
+                for pagina in leitor.pages:
+                    texto_pdf_extraido += pagina.extract_text() + "\n"
+                texto_pdf_extraido += "--- FIM DO DOCUMENTO ANEXADO ---\nPor favor, responda à minha pergunta com base nas informações deste documento que acabei de lhe enviar."
+            except Exception as e:
+                print(f"Erro ao extrair PDF: {e}")
+                texto_pdf_extraido = "\n\n[Aviso: O usuário tentou enviar um PDF, mas ocorreu um erro ao lê-lo.]"
+
+        # Adiciona etiquetas ao histórico para a interface mostrar corretamente
         texto_db = mensagem.texto
         if mensagem.imagem:
             texto_db += "\n\n*[Imagem anexada]*"
+        if mensagem.documento:
+            texto_db += "\n\n*[📄 PDF anexado]*"
         
         supabase.table("mensagens_chat").insert({
             "sessao_id": sessao,
@@ -144,8 +160,12 @@ def conversar_com_ia(mensagem: MensagemUsuario):
         }).execute()
         
         texto_resposta = ""
+        
+        # Junta a mensagem do usuário com o texto do PDF (se houver)
+        prompt_final = mensagem.texto + texto_pdf_extraido
+
         try:
-            prompt_parts = [mensagem.texto]
+            prompt_parts = [prompt_final]
             if mensagem.imagem:
                 img_bytes = base64.b64decode(mensagem.imagem)
                 prompt_parts.append(
@@ -155,7 +175,7 @@ def conversar_com_ia(mensagem: MensagemUsuario):
             response = chat_atual.send_message(prompt_parts)
             texto_resposta = response.text
         except Exception as e_gemini:
-            # Se o Gemini falhar, tenta o Groq
+            # Fallback para Groq
             try:
                 resposta_banco = supabase.table("mensagens_chat").select("*").eq("sessao_id", sessao).order("criado_em").execute()
                 groq_messages = [{"role": "system", "content": instrucoes}]
@@ -164,13 +184,15 @@ def conversar_com_ia(mensagem: MensagemUsuario):
                         role = "user" if msg["autor"] == "usuario" else "assistant"
                         groq_messages.append({"role": role, "content": msg["texto"]})
                 
+                # Injeta a pergunta final + PDF no Groq também
+                groq_messages.append({"role": "user", "content": prompt_final})
+                
                 chat_completion = groq_client.chat.completions.create(
                     messages=groq_messages,
                     model="llama3-8b-8192",
                 )
                 texto_resposta = chat_completion.choices[0].message.content
             except Exception as e_groq:
-                # Se ambos falharem, lança o erro para o escudo protetor
                 raise Exception(f"Gemini falhou ({str(e_gemini)}) E Groq falhou ({str(e_groq)})")
         
         supabase.table("mensagens_chat").insert({
@@ -186,12 +208,10 @@ def conversar_com_ia(mensagem: MensagemUsuario):
         }
         
     except Exception as erro_fatal:
-        # Se QUALQUER COISA falhar (banco de dados, API, etc), ele entra aqui!
         erro_detalhado = traceback.format_exc()
         print("ERRO CRÍTICO CAPTURADO:\n", erro_detalhado, flush=True)
         
         mensagem_erro = f"**Ops! Encontrei um erro no Backend 🚨**\n\nDetalhes para o desenvolvedor:\n```text\n{str(erro_fatal)}\n```"
-        
         return {
             "resposta": mensagem_erro,
             "sessao_id": mensagem.sessao_id
@@ -200,7 +220,6 @@ def conversar_com_ia(mensagem: MensagemUsuario):
 @app.get("/chat/{sessao_id}")
 def listar_mensagens(sessao_id: str):
     resposta = supabase.table("mensagens_chat").select("*").eq("sessao_id", sessao_id).order("criado_em").execute()
-    
     mensagens_formatadas = []
     for msg in resposta.data:
         if msg["autor"] in ["usuario", "ia"]:
@@ -208,13 +227,11 @@ def listar_mensagens(sessao_id: str):
                 "autor": msg["autor"],
                 "texto": msg["texto"]
             })
-        
     return {"mensagens": mensagens_formatadas}
 
 @app.get("/sessoes/{usuario_email}")
 def listar_sessoes(usuario_email: str):
     resposta = supabase.table("mensagens_chat").select("sessao_id, texto, autor, criado_em").eq("usuario_email", usuario_email).order("criado_em").execute()
-    
     sessoes_dict = {}
     for msg in resposta.data:
         sid = msg["sessao_id"]
@@ -223,13 +240,11 @@ def listar_sessoes(usuario_email: str):
                 "id": sid,
                 "titulo": msg["texto"][:35] + "..." if len(msg["texto"]) > 35 else msg["texto"]
             }
-            
         if msg["autor"] == "titulo":
             sessoes_dict[sid]["titulo"] = msg["texto"]
             
     lista_sessoes = list(sessoes_dict.values())
     lista_sessoes.reverse()
-    
     return {"sessoes": lista_sessoes}
 
 @app.delete("/sessoes/{sessao_id}")

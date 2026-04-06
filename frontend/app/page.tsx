@@ -14,6 +14,7 @@ type Mensagem = {
   autor: "usuario" | "ia";
   texto: string;
   imagem?: string;
+  documento?: string;
 };
 
 type Sessao = {
@@ -66,6 +67,9 @@ export default function Home() {
   
   const [imagemBase64, setImagemBase64] = useState<string | null>(null);
   const [imagemPreview, setImagemPreview] = useState<string | null>(null);
+
+  const [pdfBase64, setPdfBase64] = useState<string | null>(null);
+  const [pdfNome, setPdfNome] = useState<string | null>(null);
   
   const [persona, setPersona] = useState<string>("Padrão");
 
@@ -81,6 +85,7 @@ export default function Home() {
   const fimDasMensagensRef = useRef<HTMLDivElement>(null);
   const reconhecimentoRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
 
   let tema = temasPersona[persona];
   if (!tema) {
@@ -89,7 +94,7 @@ export default function Home() {
   }
 
   const sugestoes = [
-    { icone: "⚛️", texto: "Explica a diferença entre useState e useEffect no React" },
+    { icone: "📄", texto: "Resume as principais ideias deste documento" },
     { icone: "🐍", texto: "Como faço um CRUD básico conectando Python e Supabase?" },
     { icone: "✉️", texto: "Escreve um email profissional para enviar o meu currículo" },
     { icone: "🎨", texto: "Gera uma imagem de um setup gamer cyberpunk com luzes de neon" }
@@ -194,6 +199,7 @@ export default function Home() {
     setMensagens([]);
     setSessaoId("");
     limparImagem();
+    limparPdf();
   };
 
   const carregarHistorico = async (id: string) => {
@@ -366,6 +372,32 @@ export default function Home() {
       setImagemPreview(base64completo);
       const base64Puro = base64completo.split(',')[1];
       setImagemBase64(base64Puro);
+      limparPdf();
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSelecionarPdf = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    if (file.type !== "application/pdf") {
+      alert("Por favor, selecione apenas arquivos PDF.");
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      alert("O PDF é muito grande. O limite é 10MB.");
+      return;
+    }
+
+    setPdfNome(file.name);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64completo = reader.result as string;
+      const base64Puro = base64completo.split(',')[1];
+      setPdfBase64(base64Puro);
+      limparImagem();
     };
     reader.readAsDataURL(file);
   };
@@ -374,6 +406,12 @@ export default function Home() {
     setImagemBase64(null);
     setImagemPreview(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const limparPdf = () => {
+    setPdfBase64(null);
+    setPdfNome(null);
+    if (pdfInputRef.current) pdfInputRef.current.value = "";
   };
 
   const iniciarEdicao = (index: number, textoAtual: string) => {
@@ -410,6 +448,7 @@ export default function Home() {
     setSessaoId(novoId);
     setMensagens([]);
     limparImagem();
+    limparPdf();
     if (isMobile) setSidebarAberta(false);
   };
 
@@ -418,6 +457,7 @@ export default function Home() {
     localStorage.setItem("chatbot_sessao_id", id);
     carregarHistorico(id);
     limparImagem();
+    limparPdf();
     if (isMobile) setSidebarAberta(false);
   };
 
@@ -426,7 +466,7 @@ export default function Home() {
     
     let textoMensagem = textoDireto || input;
     
-    if (!textoMensagem.trim() && !imagemBase64) return;
+    if (!textoMensagem.trim() && !imagemBase64 && !pdfBase64) return;
     if (!sessaoId || !usuarioLogado) return;
 
     if (ouvindo) {
@@ -438,10 +478,15 @@ export default function Home() {
       textoMensagem = "Analise esta imagem.";
     }
 
+    if (!textoMensagem.trim() && pdfBase64) {
+      textoMensagem = "Por favor, leia o PDF anexado e faça um resumo das partes mais importantes.";
+    }
+
     const novaMensagemUsuario: Mensagem = { 
       autor: "usuario", 
       texto: textoMensagem,
-      imagem: imagemPreview || undefined
+      imagem: imagemPreview || undefined,
+      documento: pdfBase64 || undefined
     };
     
     setMensagens((prev) => [...prev, novaMensagemUsuario]);
@@ -449,7 +494,9 @@ export default function Home() {
     setCarregando(true);
     
     const imagemEnviada = imagemBase64;
+    const pdfEnviado = pdfBase64;
     limparImagem();
+    limparPdf();
 
     try {
       const resposta = await fetch("https://meu-chatbot-ia-01xd.onrender.com/chat", {
@@ -460,6 +507,7 @@ export default function Home() {
           sessao_id: sessaoId,
           usuario_email: usuarioLogado,
           imagem: imagemEnviada,
+          documento: pdfEnviado,
           persona: persona,
           instrucoes_customizadas: personasCustomizadas.find(p => p.nome === persona)?.instrucoes
         }),
@@ -491,6 +539,11 @@ export default function Home() {
     if (ultimaMsgUsuario.imagem) {
       imagemEnviada = ultimaMsgUsuario.imagem.split(',')[1];
     }
+    
+    let pdfEnviado = undefined;
+    if (ultimaMsgUsuario.documento) {
+      pdfEnviado = ultimaMsgUsuario.documento;
+    }
 
     try {
       const resposta = await fetch("https://meu-chatbot-ia-01xd.onrender.com/chat", {
@@ -501,6 +554,7 @@ export default function Home() {
           sessao_id: sessaoId,
           usuario_email: usuarioLogado,
           imagem: imagemEnviada,
+          documento: pdfEnviado,
           persona: persona,
           instrucoes_customizadas: personasCustomizadas.find(p => p.nome === persona)?.instrucoes
         }),
@@ -522,6 +576,7 @@ export default function Home() {
 
     const textoNovo = textoEdicao;
     const imagemAntiga = mensagens[index].imagem;
+    const pdfAntigo = mensagens[index].documento;
     cancelarEdicao();
 
     const mensagensAnteriores = mensagens.slice(0, index);
@@ -529,7 +584,8 @@ export default function Home() {
     const novaMensagemUsuario: Mensagem = {
       autor: "usuario",
       texto: textoNovo,
-      imagem: imagemAntiga
+      imagem: imagemAntiga,
+      documento: pdfAntigo
     };
 
     setMensagens([...mensagensAnteriores, novaMensagemUsuario]);
@@ -538,6 +594,11 @@ export default function Home() {
     let imagemEnviada = undefined;
     if (imagemAntiga) {
       imagemEnviada = imagemAntiga.split(',')[1];
+    }
+    
+    let pdfEnviado = undefined;
+    if (pdfAntigo) {
+      pdfEnviado = pdfAntigo;
     }
 
     try {
@@ -549,6 +610,7 @@ export default function Home() {
           sessao_id: sessaoId,
           usuario_email: usuarioLogado,
           imagem: imagemEnviada,
+          documento: pdfEnviado,
           persona: persona,
           instrucoes_customizadas: personasCustomizadas.find(p => p.nome === persona)?.instrucoes
         }),
@@ -981,27 +1043,43 @@ export default function Home() {
                   <img src={imagemPreview} alt="Anexo" className="h-24 w-auto rounded-xl object-cover" />
                 </motion.div>
               )}
+
+              {pdfNome && (
+                <motion.div initial={{ opacity: 0, scale: 0.8, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.8, y: 20 }} className={`absolute bottom-[110%] left-0 bg-black/60 backdrop-blur-md px-4 py-3 rounded-2xl border ${tema.border} shadow-2xl inline-flex items-center gap-3 mb-3`}>
+                  <button onClick={limparPdf} className="absolute -top-3 -right-3 bg-red-500 hover:bg-red-600 shadow-md transition-colors text-white rounded-full w-7 h-7 flex items-center justify-center text-xs font-bold" title="Remover PDF">✕</button>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                  <span className="text-sm font-medium text-gray-200 max-w-[200px] truncate">{pdfNome}</span>
+                </motion.div>
+              )}
             </AnimatePresence>
 
-            <form onSubmit={enviarMensagem} className={`relative flex items-center w-full gap-2 bg-black/40 rounded-full border ${tema.border} shadow-lg px-2 transition-all focus-within:ring-1 focus-within:ring-white/20`}>
+            <form onSubmit={enviarMensagem} className={`relative flex items-center w-full gap-1 sm:gap-2 bg-black/40 rounded-full border ${tema.border} shadow-lg px-2 transition-all focus-within:ring-1 focus-within:ring-white/20`}>
               
               <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleSelecionarImagem} />
               
-              <button type="button" onClick={() => fileInputRef.current?.click()} className="p-3 rounded-full transition-colors flex-shrink-0 flex items-center justify-center h-11 w-11 bg-transparent text-gray-400 hover:text-white" title="Anexar imagem" disabled={carregando}>
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
-              </button>
+              <input type="file" accept="application/pdf" className="hidden" ref={pdfInputRef} onChange={handleSelecionarPdf} />
+              
+              <div className="flex items-center">
+                <button type="button" onClick={() => pdfInputRef.current?.click()} className="p-2 sm:p-3 rounded-full transition-colors flex-shrink-0 flex items-center justify-center h-10 w-10 sm:h-11 sm:w-11 bg-transparent text-gray-400 hover:text-white" title="Anexar PDF" disabled={carregando}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
+                </button>
 
-              <button type="button" onClick={alternarMicrofone} className={`p-3 rounded-full transition-colors flex-shrink-0 flex items-center justify-center h-11 w-11 ${ouvindo ? "bg-red-500/20 text-red-500 animate-pulse" : "bg-transparent text-gray-400 hover:text-white"}`} title="Ditar mensagem" disabled={carregando}>
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg>
-              </button>
+                <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2 sm:p-3 rounded-full transition-colors flex-shrink-0 flex items-center justify-center h-10 w-10 sm:h-11 sm:w-11 bg-transparent text-gray-400 hover:text-white" title="Anexar Imagem" disabled={carregando}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                </button>
+
+                <button type="button" onClick={alternarMicrofone} className={`p-2 sm:p-3 rounded-full transition-colors flex-shrink-0 flex items-center justify-center h-10 w-10 sm:h-11 sm:w-11 ${ouvindo ? "bg-red-500/20 text-red-500 animate-pulse" : "bg-transparent text-gray-400 hover:text-white"}`} title="Ditar mensagem" disabled={carregando}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg>
+                </button>
+              </div>
               
-              <input type="text" className="flex-1 bg-transparent text-gray-100 py-4 focus:outline-none text-[15px]" placeholder={ouvindo ? "A ouvir..." : imagemPreview ? "Faça uma pergunta sobre a imagem..." : "Envie uma mensagem..."} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown} disabled={carregando} />
+              <input type="text" className="flex-1 bg-transparent text-gray-100 py-3 sm:py-4 focus:outline-none text-[14px] sm:text-[15px]" placeholder={ouvindo ? "A ouvir..." : imagemPreview ? "Faça uma pergunta sobre a imagem..." : pdfNome ? "Faça uma pergunta sobre o PDF..." : "Envie uma mensagem..."} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown} disabled={carregando} />
               
-              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} type="submit" className={`rounded-full flex-shrink-0 flex items-center justify-center h-10 w-10 mr-1 shadow-md disabled:bg-[#424242] disabled:text-gray-500 ${tema.button}`} disabled={carregando || (!input.trim() && !imagemBase64)}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} type="submit" className={`rounded-full flex-shrink-0 flex items-center justify-center h-9 w-9 sm:h-10 sm:w-10 mr-1 shadow-md disabled:bg-[#424242] disabled:text-gray-500 ${tema.button}`} disabled={carregando || (!input.trim() && !imagemBase64 && !pdfBase64)}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
               </motion.button>
             </form>
-            <p className="text-center text-xs text-gray-500 mt-3 font-medium">A IA pode cometer erros. Considere verificar as informações importantes.</p>
+            <p className="text-center text-[10px] sm:text-xs text-gray-500 mt-3 font-medium">A IA pode cometer erros. Considere verificar as informações importantes.</p>
           </div>
         </div>
       </main>
