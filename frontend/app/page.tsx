@@ -498,7 +498,7 @@ export default function Home() {
     setUsarInternet(false);
 
     try {
-      const resposta = await fetch("[https://meu-chatbot-ia-01xd.onrender.com/chat](https://meu-chatbot-ia-01xd.onrender.com/chat)", {
+      const resposta = await fetch("https://meu-chatbot-ia-01xd.onrender.com/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -548,7 +548,7 @@ export default function Home() {
     const textoLimpo = ultimaMsgUsuario.texto.replace("\n\n*[🌐 Pesquisa Web Ativada]*", "");
 
     try {
-      const resposta = await fetch("[https://meu-chatbot-ia-01xd.onrender.com/chat](https://meu-chatbot-ia-01xd.onrender.com/chat)", {
+      const resposta = await fetch("https://meu-chatbot-ia-01xd.onrender.com/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -604,7 +604,7 @@ export default function Home() {
     }
 
     try {
-      const resposta = await fetch("[https://meu-chatbot-ia-01xd.onrender.com/chat](https://meu-chatbot-ia-01xd.onrender.com/chat)", {
+      const resposta = await fetch("https://meu-chatbot-ia-01xd.onrender.com/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
