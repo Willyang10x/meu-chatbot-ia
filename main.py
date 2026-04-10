@@ -13,18 +13,19 @@ from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
 from supabase import create_client, Client
 from groq import Groq
-from duckduckgo_search import DDGS  # <-- NOVO: O motor de busca!
+from tavily import TavilyClient
 
 load_dotenv()
 
 client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY", ""))
 groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY", ""))
+tavily_client = TavilyClient(api_key=os.environ.get("TAVILY_API_KEY", ""))
 
 url: str = os.environ.get("SUPABASE_URL", "")
 key: str = os.environ.get("SUPABASE_KEY", "")
 supabase: Client = create_client(url, key)
 
-app = FastAPI(title="Chatbot IA API com Memória, Visão, Imagens, Personas, RAG e Web Search")
+app = FastAPI(title="Chatbot IA API com Memória, Visão, RAG e Web Search (Tavily)")
 
 app.add_middleware(
     CORSMiddleware,
@@ -45,7 +46,7 @@ class MensagemUsuario(BaseModel):
     documento: Optional[str] = None
     persona: str = "Padrão"
     instrucoes_customizadas: Optional[str] = None
-    usar_internet: bool = False  # <-- NOVO: Diz ao backend se deve pesquisar na web
+    usar_internet: bool = False
 
 sessoes_chat = {}
 
@@ -74,28 +75,29 @@ Aqui está a sua imagem:
 ![Descrição](https://image.pollinations.ai/prompt/seu%20prompt%20aqui%20com%20espacos%20substituidos%20por%20%20?width=800&height=800&nologo=true)
 """
 
-# --- NOVA FUNÇÃO: PESQUISA NA WEB ---
 def pesquisar_na_web(query: str) -> str:
     try:
-        with DDGS() as ddgs:
-            # Obtém os 3 primeiros resultados do DuckDuckGo
-            resultados = list(ddgs.text(query, max_results=3))
+        if not os.environ.get("TAVILY_API_KEY"):
+            return "\n\n[Nota do Sistema: A chave TAVILY_API_KEY não está configurada no servidor.]"
+
+        resposta = tavily_client.search(query=query, search_depth="basic", max_results=3)
+        resultados = resposta.get("results", [])
         
         if not resultados:
-            return "\n\n[Nota do Sistema: Tentei pesquisar na internet, mas não encontrei resultados.]"
+            return "\n\n[Nota do Sistema: Tentei pesquisar na internet via Tavily, mas não encontrei resultados.]"
             
-        contexto = "\n\n--- 🌐 RESULTADOS DA PESQUISA NA INTERNET (TEMPO REAL) ---\n"
+        contexto = "\n\n--- 🌐 RESULTADOS DA PESQUISA NA INTERNET (TAVILY) ---\n"
         for res in resultados:
-            contexto += f"Fonte: {res.get('title')} ({res.get('href')})\nResumo: {res.get('body')}\n\n"
+            contexto += f"Fonte: {res.get('title')} ({res.get('url')})\nResumo: {res.get('content')}\n\n"
         contexto += "--------------------------------------------------------\n[Instrução para a IA: O usuário ativou a pesquisa na web. Use as informações acima para responder à pergunta com dados atualizados.]"
         return contexto
     except Exception as e:
-        print(f"Erro na pesquisa web: {e}")
-        return "\n\n[Nota do Sistema: Erro ao aceder à internet.]"
+        print(f"Erro na pesquisa web Tavily: {e}")
+        return "\n\n[Nota do Sistema: Erro ao aceder à internet via Tavily.]"
 
 @app.get("/")
 def read_root():
-    return {"status": "ok", "mensagem": "Backend rodando com Leitura de PDFs e Web Search!"}
+    return {"status": "ok", "mensagem": "Backend rodando com Leitura de PDFs e Tavily Web Search!"}
 
 @app.post("/chat")
 def conversar_com_ia(mensagem: MensagemUsuario):
@@ -152,7 +154,6 @@ def conversar_com_ia(mensagem: MensagemUsuario):
             
         chat_atual = sessoes_chat[sessao]["chat"]
         
-        # LÓGICA DE LEITURA DE PDF
         texto_pdf_extraido = ""
         if mensagem.documento:
             try:
@@ -165,12 +166,10 @@ def conversar_com_ia(mensagem: MensagemUsuario):
             except Exception as e:
                 texto_pdf_extraido = "\n\n[Aviso: Erro ao ler PDF.]"
 
-        # LÓGICA DE PESQUISA NA WEB
         texto_internet = ""
         if mensagem.usar_internet:
             texto_internet = pesquisar_na_web(mensagem.texto)
 
-        # Adiciona etiquetas visuais no histórico
         texto_db = mensagem.texto
         if mensagem.imagem:
             texto_db += "\n\n*[Imagem anexada]*"
@@ -187,8 +186,6 @@ def conversar_com_ia(mensagem: MensagemUsuario):
         }).execute()
         
         texto_resposta = ""
-        
-        # O "Super Prompt" junta: Pergunta do Utilizador + Conteúdo do PDF + Pesquisa da Internet
         prompt_final = mensagem.texto + texto_pdf_extraido + texto_internet
 
         try:
@@ -202,7 +199,6 @@ def conversar_com_ia(mensagem: MensagemUsuario):
             response = chat_atual.send_message(prompt_parts)
             texto_resposta = response.text
         except Exception as e_gemini:
-            # Fallback para Groq
             try:
                 resposta_banco = supabase.table("mensagens_chat").select("*").eq("sessao_id", sessao).order("criado_em").execute()
                 groq_messages = [{"role": "system", "content": instrucoes}]
