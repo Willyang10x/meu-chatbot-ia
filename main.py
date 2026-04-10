@@ -122,7 +122,7 @@ def conversar_com_ia(mensagem: MensagemUsuario):
                     try:
                         resp_groq = groq_client.chat.completions.create(
                             messages=[{"role": "user", "content": f"Crie um título curto (máximo 4 palavras) para resumir esta mensagem: '{mensagem.texto}'."}],
-                            model="llama3-8b-8192",
+                            model="llama-3.1-8b-instant",
                         )
                         titulo_gerado = resp_groq.choices[0].message.content.strip()
                     except Exception:
@@ -211,7 +211,7 @@ def conversar_com_ia(mensagem: MensagemUsuario):
                 
                 chat_completion = groq_client.chat.completions.create(
                     messages=groq_messages,
-                    model="llama3-8b-8192",
+                    model="llama-3.1-8b-instant",
                 )
                 texto_resposta = chat_completion.choices[0].message.content
             except Exception as e_groq:
