@@ -25,7 +25,7 @@ url: str = os.environ.get("SUPABASE_URL", "")
 key: str = os.environ.get("SUPABASE_KEY", "")
 supabase: Client = create_client(url, key)
 
-app = FastAPI(title="Chatbot IA API - Master RAG")
+app = FastAPI(title="Chatbot IA API - Master RAG e Memória")
 
 app.add_middleware(
     CORSMiddleware,
@@ -47,6 +47,7 @@ class MensagemUsuario(BaseModel):
     persona: str = "Padrão"
     instrucoes_customizadas: Optional[str] = None
     usar_internet: bool = False
+    bloco_notas: Optional[str] = None
 
 sessoes_chat = {}
 
@@ -107,11 +108,11 @@ def fatiar_e_vetorizar(texto: str, sessao_id: str):
             "embedding": vetor
         }).execute()
     except Exception as e:
-        print(f"Erro a vetorizar pedaço: {e}")
+        pass
 
 @app.get("/")
 def read_root():
-    return {"status": "ok", "mensagem": "RAG Vetorial Ativo!"}
+    return {"status": "ok", "mensagem": "RAG Vetorial e Memória Ativos!"}
 
 @app.post("/chat")
 def conversar_com_ia(mensagem: MensagemUsuario):
@@ -181,7 +182,7 @@ def conversar_com_ia(mensagem: MensagemUsuario):
                     if pedaco.strip():
                         fatiar_e_vetorizar(pedaco.strip(), sessao)
             except Exception as e:
-                print(f"Erro no processamento do PDF: {e}")
+                pass
 
         contexto_rag = ""
         try:
@@ -207,11 +208,15 @@ def conversar_com_ia(mensagem: MensagemUsuario):
                     contexto_rag += res['conteudo'] + "\n\n"
                 contexto_rag += "--------------------------------------------------------\n[Instrução: Use os dados do documento acima para responder.]\n"
         except Exception as e:
-            print(f"Nenhum contexto RAG encontrado: {e}")
+            pass
 
         texto_internet = ""
         if mensagem.usar_internet:
             texto_internet = pesquisar_na_web(mensagem.texto)
+            
+        texto_bloco_notas = ""
+        if mensagem.bloco_notas and mensagem.bloco_notas.strip():
+            texto_bloco_notas = f"\n\n--- 📝 BLOCO DE NOTAS (MEMÓRIA DO UTILIZADOR) ---\n{mensagem.bloco_notas}\n--------------------------------------------------------\n[Instrução: O utilizador tem as anotações acima guardadas. Leve-as em consideração caso sejam relevantes para a sua resposta.]\n"
 
         texto_db = mensagem.texto
         if mensagem.imagem:
@@ -229,7 +234,7 @@ def conversar_com_ia(mensagem: MensagemUsuario):
         }).execute()
         
         texto_resposta = ""
-        prompt_final = mensagem.texto + contexto_rag + texto_internet
+        prompt_final = mensagem.texto + contexto_rag + texto_internet + texto_bloco_notas
 
         try:
             prompt_parts = [prompt_final]
