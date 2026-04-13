@@ -59,6 +59,8 @@ export default function Home() {
   const [sessoes, setSessoes] = useState<Sessao[]>([]);
   
   const [sidebarAberta, setSidebarAberta] = useState(true);
+  const [blocoAberto, setBlocoAberto] = useState(false);
+  const [textoBloco, setTextoBloco] = useState("");
   const [isMobile, setIsMobile] = useState(false);
   
   const [copiadoIndex, setCopiadoIndex] = useState<number | null>(null);
@@ -110,8 +112,12 @@ export default function Home() {
     const handleResize = () => {
       const mobile = window.innerWidth < 768;
       setIsMobile(mobile);
-      if (mobile) setSidebarAberta(false);
-      else setSidebarAberta(true);
+      if (mobile) {
+        setSidebarAberta(false);
+        setBlocoAberto(false);
+      } else {
+        setSidebarAberta(true);
+      }
     };
     
     handleResize();
@@ -203,6 +209,7 @@ export default function Home() {
     limparImagem();
     limparPdf();
     setUsarInternet(false);
+    setTextoBloco("");
   };
 
   const carregarHistorico = async (id: string) => {
@@ -419,6 +426,14 @@ export default function Home() {
     setTextoEdicao("");
   };
 
+  const adicionarAoBloco = (texto: string) => {
+    const limpo = texto.replace(/!\[(.*?)\]\((.*?)\)/g, '').trim();
+    const novoTexto = textoBloco ? textoBloco + "\n\n---\n" + limpo : limpo;
+    setTextoBloco(novoTexto);
+    if (sessaoId) localStorage.setItem(`notas_${sessaoId}`, novoTexto);
+    setBlocoAberto(true);
+  };
+
   useEffect(() => {
     if (!usuarioLogado) return;
     
@@ -432,6 +447,14 @@ export default function Home() {
     carregarSessoes(usuarioLogado);
     carregarPersonas(usuarioLogado);
   }, [usuarioLogado]);
+
+  useEffect(() => {
+    if (sessaoId) {
+      const notasSalvas = localStorage.getItem(`notas_${sessaoId}`);
+      if (notasSalvas) setTextoBloco(notasSalvas);
+      else setTextoBloco("");
+    }
+  }, [sessaoId]);
 
   useEffect(() => {
     rolarParaOFinal();
@@ -509,7 +532,8 @@ export default function Home() {
           documento: pdfEnviado,
           persona: persona,
           instrucoes_customizadas: personasCustomizadas.find(p => p.nome === persona)?.instrucoes,
-          usar_internet: pesquisaAtiva
+          usar_internet: pesquisaAtiva,
+          bloco_notas: textoBloco
         }),
       });
 
@@ -568,7 +592,8 @@ export default function Home() {
           documento: pdfEnviado,
           persona: persona,
           instrucoes_customizadas: personasCustomizadas.find(p => p.nome === persona)?.instrucoes,
-          usar_internet: usouInternetAntes
+          usar_internet: usouInternetAntes,
+          bloco_notas: textoBloco
         }),
       });
 
@@ -624,7 +649,8 @@ export default function Home() {
           documento: pdfEnviado,
           persona: persona,
           instrucoes_customizadas: personasCustomizadas.find(p => p.nome === persona)?.instrucoes,
-          usar_internet: false
+          usar_internet: false,
+          bloco_notas: textoBloco
         }),
       });
 
@@ -878,6 +904,9 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-2">
+            <button onClick={() => setBlocoAberto(!blocoAberto)} className={`text-xs font-bold px-3 py-2 rounded-xl transition-all border ${tema.border} ${blocoAberto ? 'bg-white/10 text-white' : 'hover:bg-white/10 text-gray-400'} flex items-center gap-1.5`} title="Bloco de Notas">
+              <span className="text-base">📝</span> <span className="hidden sm:inline">Notas</span>
+            </button>
             <button onClick={() => setModalPersona(true)} className={`text-xs font-bold px-3 py-2 rounded-xl transition-all border ${tema.border} hover:bg-white/10 text-gray-300 hidden sm:flex items-center gap-1.5`}><span className="text-base">+</span> Nova Persona</button>
             <select
               value={persona}
@@ -976,6 +1005,11 @@ export default function Home() {
                               ) : (
                                 <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg> Ouvir</>
                               )}
+                            </button>
+
+                            <button onClick={() => adicionarAoBloco(msg.texto)} className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-300 transition-colors bg-white/5 px-2 py-1.5 rounded-lg" title="Guardar na Memória (Bloco de Notas)">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
+                              Guardar
                             </button>
 
                             <button onClick={() => executarAcaoRapida('resumir', msg.texto)} disabled={carregando} className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-300 transition-colors bg-white/5 px-2 py-1.5 rounded-lg disabled:opacity-50" title="Resumir em 3 pontos">
@@ -1126,6 +1160,43 @@ export default function Home() {
           </div>
         </div>
       </main>
+
+      <AnimatePresence>
+        {blocoAberto && isMobile && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden" 
+            onClick={() => setBlocoAberto(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      <motion.aside 
+        initial={false}
+        animate={{ 
+          width: isMobile ? 300 : (blocoAberto ? 300 : 0),
+          x: isMobile ? (blocoAberto ? 0 : "100%") : 0
+        }}
+        className={`fixed right-0 md:relative z-50 h-full bg-black/40 backdrop-blur-md flex flex-col transition-colors border-l ${tema.border} overflow-hidden`}
+      >
+        <div className="w-[300px] h-full flex flex-col flex-shrink-0">
+          <div className={`p-4 flex items-center justify-between border-b ${tema.border}`}>
+            <h3 className="font-bold flex items-center gap-2"><span className="text-xl">📝</span> Notas da Sessão</h3>
+            <button onClick={() => setBlocoAberto(false)} className="text-gray-400 hover:text-white">✕</button>
+          </div>
+          <div className="flex-1 p-3 flex flex-col">
+            <textarea 
+              value={textoBloco} 
+              onChange={(e) => { 
+                setTextoBloco(e.target.value); 
+                if (sessaoId) localStorage.setItem(`notas_${sessaoId}`, e.target.value); 
+              }} 
+              placeholder="Escreva aqui as suas notas ou guarde partes da conversa. A IA vai lembrar-se de tudo o que estiver aqui!" 
+              className={`flex-1 w-full bg-black/20 p-4 rounded-xl border ${tema.border} text-sm outline-none resize-none custom-scrollbar leading-relaxed`} 
+            />
+          </div>
+        </div>
+      </motion.aside>
     </div>
   );
 }
