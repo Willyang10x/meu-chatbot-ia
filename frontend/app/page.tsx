@@ -290,7 +290,8 @@ export default function Home() {
   };
 
   const copiarTexto = (texto: string, index: number) => {
-    const textoLimpo = texto
+    const textoBase = texto.split("---SUGESTOES---")[0];
+    const textoLimpo = textoBase
       .replace(/\*\*(.*?)\*\*/g, '$1')
       .replace(/\*(.*?)\*/g, '$1')
       .replace(/```[\s\S]*?```/g, (m) => m.replace(/```\w*\n?/g, ''))
@@ -350,7 +351,8 @@ export default function Home() {
 
     window.speechSynthesis.cancel();
 
-    const textoLimpo = texto.replace(/[*#~`]/g, '');
+    const textoBase = texto.split("---SUGESTOES---")[0];
+    const textoLimpo = textoBase.replace(/[*#~`]/g, '');
     const utterance = new SpeechSynthesisUtterance(textoLimpo);
     utterance.lang = "pt-BR";
     utterance.rate = 1.1;
@@ -427,7 +429,8 @@ export default function Home() {
   };
 
   const adicionarAoBloco = (texto: string) => {
-    const limpo = texto.replace(/!\[(.*?)\]\((.*?)\)/g, '').trim();
+    const textoBase = texto.split("---SUGESTOES---")[0];
+    const limpo = textoBase.replace(/!\[(.*?)\]\((.*?)\)/g, '').trim();
     const novoTexto = textoBloco ? textoBloco + "\n\n---\n" + limpo : limpo;
     setTextoBloco(novoTexto);
     if (sessaoId) localStorage.setItem(`notas_${sessaoId}`, novoTexto);
@@ -521,7 +524,7 @@ export default function Home() {
     setUsarInternet(false);
 
     try {
-      const resposta = await fetch("https://meu-chatbot-ia-01xd.onrender.com/chat", {
+      const resposta = await fetch("[https://meu-chatbot-ia-01xd.onrender.com/chat](https://meu-chatbot-ia-01xd.onrender.com/chat)", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -548,11 +551,12 @@ export default function Home() {
   };
 
   const executarAcaoRapida = (acao: 'resumir' | 'explicar' | 'ingles' | 'espanhol', textoAlvo: string) => {
+    const textoBase = textoAlvo.split("---SUGESTOES---")[0];
     let prompt = "";
-    if (acao === 'resumir') prompt = `Por favor, resume esta mensagem em 3 bullet points curtos:\n\n"${textoAlvo}"`;
-    if (acao === 'explicar') prompt = `Explica este texto de forma muito simples, como se eu tivesse 5 anos:\n\n"${textoAlvo}"`;
-    if (acao === 'ingles') prompt = `Traduz este texto exato para Inglês:\n\n"${textoAlvo}"`;
-    if (acao === 'espanhol') prompt = `Traduz este texto exato para Espanhol:\n\n"${textoAlvo}"`;
+    if (acao === 'resumir') prompt = `Por favor, resume esta mensagem em 3 bullet points curtos:\n\n"${textoBase}"`;
+    if (acao === 'explicar') prompt = `Explica este texto de forma muito simples, como se eu tivesse 5 anos:\n\n"${textoBase}"`;
+    if (acao === 'ingles') prompt = `Traduz este texto exato para Inglês:\n\n"${textoBase}"`;
+    if (acao === 'espanhol') prompt = `Traduz este texto exato para Espanhol:\n\n"${textoBase}"`;
     enviarMensagem(undefined, prompt);
   };
 
@@ -581,7 +585,7 @@ export default function Home() {
     const textoLimpo = ultimaMsgUsuario.texto.replace("\n\n*[🌐 Pesquisa Web Ativada]*", "");
 
     try {
-      const resposta = await fetch("https://meu-chatbot-ia-01xd.onrender.com/chat", {
+      const resposta = await fetch("[https://meu-chatbot-ia-01xd.onrender.com/chat](https://meu-chatbot-ia-01xd.onrender.com/chat)", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -638,7 +642,7 @@ export default function Home() {
     }
 
     try {
-      const resposta = await fetch("https://meu-chatbot-ia-01xd.onrender.com/chat", {
+      const resposta = await fetch("[https://meu-chatbot-ia-01xd.onrender.com/chat](https://meu-chatbot-ia-01xd.onrender.com/chat)", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -985,62 +989,78 @@ export default function Home() {
                     <div className={`max-w-[85%] md:max-w-[75%] px-6 py-4 ${msg.autor === "usuario" ? `bg-black/30 border ${tema.border} rounded-3xl rounded-tr-sm shadow-md` : "flex flex-col bg-transparent px-0 rounded-none w-full"}`}>
                       {msg.autor === "ia" ? (
                         <>
-                          <div className="prose prose-invert prose-p:leading-relaxed prose-pre:bg-[#161b22] prose-pre:border prose-pre:border-gray-800 max-w-none">
-                            <ReactMarkdown>
-                              {msg.texto.replace(/!\[(.*?)\]\((.*?)\)/g, (match, alt, url) => `![${alt}](${url.replace(/ /g, '%20')})`)}
-                            </ReactMarkdown>
-                          </div>
-                          
-                          <div className="flex flex-wrap justify-start mt-4 gap-2">
-                            <button onClick={() => copiarTexto(msg.texto, index)} className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-300 transition-colors bg-white/5 px-2 py-1.5 rounded-lg" title="Copiar resposta">
-                              {copiadoIndex === index ? (
-                                <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-500"><polyline points="20 6 9 17 4 12"></polyline></svg> Copiado</>
-                              ) : (
-                                <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> Copiar</>
-                              )}
-                            </button>
-                            <button onClick={() => alternarVoz(msg.texto, index)} className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-300 transition-colors bg-white/5 px-2 py-1.5 rounded-lg" title="Ouvir resposta">
-                              {falandoIndex === index ? (
-                                <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg> Parar</>
-                              ) : (
-                                <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg> Ouvir</>
-                              )}
-                            </button>
-
-                            <button onClick={() => adicionarAoBloco(msg.texto)} className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-300 transition-colors bg-white/5 px-2 py-1.5 rounded-lg" title="Guardar na Memória (Bloco de Notas)">
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
-                              Guardar
-                            </button>
-
-                            <button onClick={() => executarAcaoRapida('resumir', msg.texto)} disabled={carregando} className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-300 transition-colors bg-white/5 px-2 py-1.5 rounded-lg disabled:opacity-50" title="Resumir em 3 pontos">
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
-                              Resumir
-                            </button>
-
-                            <button onClick={() => executarAcaoRapida('explicar', msg.texto)} disabled={carregando} className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-300 transition-colors bg-white/5 px-2 py-1.5 rounded-lg disabled:opacity-50" title="Explicar como se eu tivesse 5 anos">
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line></svg>
-                              Simples
-                            </button>
-
-                            <button onClick={() => executarAcaoRapida('ingles', msg.texto)} disabled={carregando} className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-300 transition-colors bg-white/5 px-2 py-1.5 rounded-lg disabled:opacity-50" title="Traduzir para Inglês">
-                              EN
-                            </button>
-
-                            <button onClick={() => executarAcaoRapida('espanhol', msg.texto)} disabled={carregando} className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-300 transition-colors bg-white/5 px-2 py-1.5 rounded-lg disabled:opacity-50" title="Traduzir para Espanhol">
-                              ES
-                            </button>
+                          {(() => {
+                            const partes = msg.texto.split("---SUGESTOES---");
+                            const textoPrincipal = partes[0];
+                            const perguntasSugestao = partes.length > 1 ? partes[1].split('\n').filter(linha => linha.trim().length > 0).map(linha => linha.replace(/^\d+\.\s*/, '').trim()) : [];
                             
-                            {index === mensagens.length - 1 && !carregando && (
-                              <button onClick={regerarUltimaResposta} className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-300 transition-colors bg-white/5 px-2 py-1.5 rounded-lg" title="Regerar resposta">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                  <polyline points="1 4 1 10 7 10"></polyline>
-                                  <polyline points="23 20 23 14 17 14"></polyline>
-                                  <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path>
-                                </svg> 
-                                Regerar
-                              </button>
-                            )}
-                          </div>
+                            return (
+                              <div className="flex flex-col w-full">
+                                <div className="prose prose-invert prose-p:leading-relaxed prose-pre:bg-[#161b22] prose-pre:border prose-pre:border-gray-800 max-w-none">
+                                  <ReactMarkdown>
+                                    {textoPrincipal.replace(/!\[(.*?)\]\((.*?)\)/g, (match, alt, url) => `![${alt}](${url.replace(/ /g, '%20')})`)}
+                                  </ReactMarkdown>
+                                </div>
+                                
+                                <div className="flex flex-wrap justify-start mt-4 gap-2">
+                                  <button onClick={() => copiarTexto(msg.texto, index)} className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-300 transition-colors bg-white/5 px-2 py-1.5 rounded-lg" title="Copiar resposta">
+                                     {copiadoIndex === index ? (
+                                       <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-500"><polyline points="20 6 9 17 4 12"></polyline></svg> Copiado</>
+                                     ) : (
+                                       <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> Copiar</>
+                                     )}
+                                  </button>
+                                  <button onClick={() => alternarVoz(msg.texto, index)} className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-300 transition-colors bg-white/5 px-2 py-1.5 rounded-lg" title="Ouvir resposta">
+                                     {falandoIndex === index ? (
+                                       <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg> Parar</>
+                                     ) : (
+                                       <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg> Ouvir</>
+                                     )}
+                                  </button>
+                                  <button onClick={() => adicionarAoBloco(msg.texto)} className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-300 transition-colors bg-white/5 px-2 py-1.5 rounded-lg" title="Guardar na Memória (Bloco de Notas)">
+                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
+                                     Guardar
+                                  </button>
+                                  <button onClick={() => executarAcaoRapida('resumir', msg.texto)} disabled={carregando} className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-300 transition-colors bg-white/5 px-2 py-1.5 rounded-lg disabled:opacity-50" title="Resumir em 3 pontos">
+                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+                                     Resumir
+                                  </button>
+                                  <button onClick={() => executarAcaoRapida('explicar', msg.texto)} disabled={carregando} className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-300 transition-colors bg-white/5 px-2 py-1.5 rounded-lg disabled:opacity-50" title="Explicar como se eu tivesse 5 anos">
+                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line></svg>
+                                     Simples
+                                  </button>
+                                  <button onClick={() => executarAcaoRapida('ingles', msg.texto)} disabled={carregando} className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-300 transition-colors bg-white/5 px-2 py-1.5 rounded-lg disabled:opacity-50" title="Traduzir para Inglês">
+                                     EN
+                                  </button>
+                                  <button onClick={() => executarAcaoRapida('espanhol', msg.texto)} disabled={carregando} className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-300 transition-colors bg-white/5 px-2 py-1.5 rounded-lg disabled:opacity-50" title="Traduzir para Espanhol">
+                                     ES
+                                  </button>
+                                  {index === mensagens.length - 1 && !carregando && (
+                                     <button onClick={regerarUltimaResposta} className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-300 transition-colors bg-white/5 px-2 py-1.5 rounded-lg" title="Regerar resposta">
+                                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"></polyline><polyline points="23 20 23 14 17 14"></polyline><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path></svg> 
+                                       Regerar
+                                     </button>
+                                  )}
+                                </div>
+
+                                {perguntasSugestao.length > 0 && index === mensagens.length - 1 && !carregando && (
+                                  <div className="mt-5 flex flex-col gap-2 border-t border-gray-700/30 pt-4">
+                                    <span className="text-[11px] text-gray-400 font-bold uppercase tracking-wider flex items-center gap-1.5">
+                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg> 
+                                      Sugestões para continuar:
+                                    </span>
+                                    <div className="flex flex-wrap gap-2 mt-1">
+                                      {perguntasSugestao.map((pergunta, idx) => (
+                                        <button key={idx} onClick={() => enviarMensagem(undefined, pergunta)} disabled={carregando} className={`text-left text-sm text-gray-300 hover:text-white bg-black/20 hover:bg-white/10 border ${tema.border} transition-all px-4 py-2 rounded-xl flex items-center gap-2 max-w-full shadow-sm`}>
+                                          <span className="text-blue-400 font-bold shrink-0">↳</span> <span className="line-clamp-1">{pergunta}</span>
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </>
                       ) : (
                         <div className="flex flex-col gap-2 items-end w-full group">

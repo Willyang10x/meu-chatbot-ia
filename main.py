@@ -25,7 +25,7 @@ url: str = os.environ.get("SUPABASE_URL", "")
 key: str = os.environ.get("SUPABASE_KEY", "")
 supabase: Client = create_client(url, key)
 
-app = FastAPI(title="Chatbot IA API - Master RAG e Memória")
+app = FastAPI(title="Chatbot IA API - Master RAG e Sugestoes")
 
 app.add_middleware(
     CORSMiddleware,
@@ -74,6 +74,14 @@ Em vez disso, você deve criar um prompt em INGLÊS muito detalhado e retornar a
 ESTRUTURA OBRIGATÓRIA DA RESPOSTA:
 Aqui está a sua imagem:
 ![Descrição](https://image.pollinations.ai/prompt/seu%20prompt%20aqui%20com%20espacos%20substituidos%20por%20%20?width=800&height=800&nologo=true)
+
+REGRA DE OURO (PERGUNTAS DE SEGUIMENTO):
+Sempre, no final absoluto de cada resposta sua, você DEVE fornecer exatamente 3 sugestões de perguntas lógicas que o usuário pode fazer a seguir para continuar a conversa de forma natural.
+Formate OBRIGATORIAMENTE assim no final da sua resposta:
+---SUGESTOES---
+1. [Sua sugestão de pergunta 1]
+2. [Sua sugestão de pergunta 2]
+3. [Sua sugestão de pergunta 3]
 """
 
 def pesquisar_na_web(query: str) -> str:
@@ -112,7 +120,7 @@ def fatiar_e_vetorizar(texto: str, sessao_id: str):
 
 @app.get("/")
 def read_root():
-    return {"status": "ok", "mensagem": "RAG Vetorial e Memória Ativos!"}
+    return {"status": "ok", "mensagem": "RAG Vetorial, Memória e Sugestões Ativos!"}
 
 @app.post("/chat")
 def conversar_com_ia(mensagem: MensagemUsuario):
