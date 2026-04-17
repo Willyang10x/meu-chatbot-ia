@@ -98,9 +98,9 @@ export default function Home() {
   }
 
   const sugestoes = [
+    { icone: "📺", texto: "Resume este vídeo: https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
     { icone: "🌐", texto: "Qual é a cotação do Dólar hoje?" },
     { icone: "📄", texto: "Resume as principais ideias deste documento" },
-    { icone: "🐍", texto: "Como faço um CRUD básico conectando Python e Supabase?" },
     { icone: "🎨", texto: "Gera uma imagem de um setup gamer cyberpunk com luzes de neon" }
   ];
 
@@ -524,7 +524,7 @@ export default function Home() {
     setUsarInternet(false);
 
     try {
-      const resposta = await fetch("[https://meu-chatbot-ia-01xd.onrender.com/chat](https://meu-chatbot-ia-01xd.onrender.com/chat)", {
+      const resposta = await fetch("https://meu-chatbot-ia-01xd.onrender.com/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -585,7 +585,7 @@ export default function Home() {
     const textoLimpo = ultimaMsgUsuario.texto.replace("\n\n*[🌐 Pesquisa Web Ativada]*", "");
 
     try {
-      const resposta = await fetch("[https://meu-chatbot-ia-01xd.onrender.com/chat](https://meu-chatbot-ia-01xd.onrender.com/chat)", {
+      const resposta = await fetch("https://meu-chatbot-ia-01xd.onrender.com/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -642,7 +642,7 @@ export default function Home() {
     }
 
     try {
-      const resposta = await fetch("[https://meu-chatbot-ia-01xd.onrender.com/chat](https://meu-chatbot-ia-01xd.onrender.com/chat)", {
+      const resposta = await fetch("https://meu-chatbot-ia-01xd.onrender.com/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1170,7 +1170,7 @@ export default function Home() {
                 </button>
               </div>
               
-              <input type="text" className="flex-1 bg-transparent text-gray-100 py-3 sm:py-4 focus:outline-none text-[14px] sm:text-[15px]" placeholder={ouvindo ? "A ouvir..." : imagemPreview ? "Faça uma pergunta sobre a imagem..." : pdfNome ? "Faça uma pergunta sobre o PDF..." : usarInternet ? "Pergunte algo ao mundo..." : "Envie uma mensagem..."} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown} disabled={carregando} />
+              <input type="text" className="flex-1 bg-transparent text-gray-100 py-3 sm:py-4 focus:outline-none text-[14px] sm:text-[15px]" placeholder={ouvindo ? "A ouvir..." : imagemPreview ? "Faça uma pergunta sobre a imagem..." : pdfNome ? "Faça uma pergunta sobre o PDF..." : usarInternet ? "Pergunte algo ao mundo..." : "Envie uma mensagem ou link do YouTube..."} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown} disabled={carregando} />
               
               <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} type="submit" className={`rounded-full flex-shrink-0 flex items-center justify-center h-9 w-9 sm:h-10 sm:w-10 mr-1 shadow-md disabled:bg-[#424242] disabled:text-gray-500 ${tema.button}`} disabled={carregando || (!input.trim() && !imagemBase64 && !pdfBase64)}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>

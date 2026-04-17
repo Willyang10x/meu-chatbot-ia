@@ -3,6 +3,7 @@ import io
 import base64
 import traceback
 import PyPDF2
+import re
 from datetime import datetime
 from typing import Optional
 from fastapi import FastAPI
@@ -14,6 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from supabase import create_client, Client
 from groq import Groq
 from tavily import TavilyClient
+from youtube_transcript_api import YouTubeTranscriptApi
 
 load_dotenv()
 
@@ -25,7 +27,7 @@ url: str = os.environ.get("SUPABASE_URL", "")
 key: str = os.environ.get("SUPABASE_KEY", "")
 supabase: Client = create_client(url, key)
 
-app = FastAPI(title="Chatbot IA API - Master RAG e Sugestoes")
+app = FastAPI(title="Chatbot IA API - Master")
 
 app.add_middleware(
     CORSMiddleware,
@@ -120,7 +122,7 @@ def fatiar_e_vetorizar(texto: str, sessao_id: str):
 
 @app.get("/")
 def read_root():
-    return {"status": "ok", "mensagem": "RAG Vetorial, Memória e Sugestões Ativos!"}
+    return {"status": "ok", "mensagem": "API 100% Operacional!"}
 
 @app.post("/chat")
 def conversar_com_ia(mensagem: MensagemUsuario):
@@ -226,6 +228,17 @@ def conversar_com_ia(mensagem: MensagemUsuario):
         if mensagem.bloco_notas and mensagem.bloco_notas.strip():
             texto_bloco_notas = f"\n\n--- 📝 BLOCO DE NOTAS (MEMÓRIA DO UTILIZADOR) ---\n{mensagem.bloco_notas}\n--------------------------------------------------------\n[Instrução: O utilizador tem as anotações acima guardadas. Leve-as em consideração caso sejam relevantes para a sua resposta.]\n"
 
+        texto_youtube = ""
+        yt_urls = re.findall(r'(?:https?:\/\/)?(?:www\.)?(?:youtube\.com|youtu\.be)\/(?:watch\?v=)?(?:embed\/)?(?:v\/)?(?:shorts\/)?(?:\?v=)?([a-zA-Z0-9_-]{11})', mensagem.texto)
+        if yt_urls:
+            video_id = yt_urls[0]
+            try:
+                transcript_list = YouTubeTranscriptApi.get_transcript(video_id, languages=['pt', 'pt-BR', 'en'])
+                transcript_text = " ".join([t['text'] for t in transcript_list])
+                texto_youtube = f"\n\n--- 📺 TRANSCRIÇÃO DO VÍDEO DO YOUTUBE ---\n{transcript_text}\n--------------------------------------------------------\n[Instrução: O utilizador enviou um link de um vídeo do YouTube. Use a transcrição acima para responder ou resumir o conteúdo do vídeo.]\n"
+            except Exception:
+                texto_youtube = "\n\n[Nota do Sistema: Não foi possível obter as legendas deste vídeo do YouTube.]\n"
+
         texto_db = mensagem.texto
         if mensagem.imagem:
             texto_db += "\n\n*[Imagem anexada]*"
@@ -233,6 +246,8 @@ def conversar_com_ia(mensagem: MensagemUsuario):
             texto_db += "\n\n*[📄 PDF Processado e guardado na memória da IA]*"
         if mensagem.usar_internet:
             texto_db += "\n\n*[🌐 Pesquisa Web Ativada]*"
+        if yt_urls:
+            texto_db += "\n\n*[📺 Vídeo do YouTube Analisado]*"
         
         supabase.table("mensagens_chat").insert({
             "sessao_id": sessao,
@@ -242,7 +257,7 @@ def conversar_com_ia(mensagem: MensagemUsuario):
         }).execute()
         
         texto_resposta = ""
-        prompt_final = mensagem.texto + contexto_rag + texto_internet + texto_bloco_notas
+        prompt_final = mensagem.texto + contexto_rag + texto_internet + texto_bloco_notas + texto_youtube
 
         try:
             prompt_parts = [prompt_final]
