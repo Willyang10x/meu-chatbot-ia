@@ -40,12 +40,3 @@ Este projeto vai muito além de um simples chatbot, integrando capacidades avan�
 
 ### Base de Dados
 * **[Supabase](https://supabase.com/)** (PostgreSQL) com a extensão `pgvector` para armazenar e pesquisar embeddings matemáticos.
-
----
-
-## ⚙️ Como Instalar e Executar Localmente
-
-### 1. Clonar o Repositório
-```bash
-git clone [https://github.com/Willyang10x/meu-chatbot-ia.git](https://github.com/Willyang10x/meu-chatbot-ia.git)
-cd meu-chatbot-ia
